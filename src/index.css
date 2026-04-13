@@ -74,6 +74,13 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
   .gradient-dark {
     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
   }
+  .gradient-sapientia {
+    background: linear-gradient(135deg, #c62828 0%, #880e4f 100%);
+  }
+  /* Necesario porque Tailwind no genera bg-white/8 por defecto */
+  .bg-white\/8 {
+    background-color: rgba(255,255,255,0.08);
+  }
   .text-gradient {
     background: linear-gradient(135deg, #0ea5e9, #6366f1);
     -webkit-background-clip: text;

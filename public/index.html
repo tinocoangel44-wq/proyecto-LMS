@@ -1,43 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#2563eb" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="Sapientia — Plataforma de aprendizaje en línea"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <title>Sapientia · LMS</title>
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
+    <!--
+      ═══════════════════════════════════════════════════════════════
+      TEMA: Script de inicialización síncrono (IIFE)
+      ───────────────────────────────────────────────────────────────
+      Se ejecuta ANTES de que React hidrate — evita el flash de
+      dark/light mode y garantiza consistencia desde el primer pixel.
+
+      Lógica:
+        • Si localStorage tiene 'theme=dark' → aplicar dark
+        • Cualquier otro caso (light, vacío, null) → aplicar light
+        • El ThemeContext de React sincroniza su estado con este valor
+      ═══════════════════════════════════════════════════════════════
     -->
-    <title>React App</title>
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+
+          if (saved === 'dark') {
+            // El usuario eligió explícitamente dark → respetar
+            document.documentElement.classList.add('dark');
+          } else {
+            // Sin preferencia guardada O eligió light → forzar light
+            // También limpia valores corruptos ('undefined', null, etc.)
+            document.documentElement.classList.remove('dark');
+            if (saved !== 'light') {
+              // Normalizar: si no era 'dark' ni 'light', borrar el valor basura
+              localStorage.removeItem('theme');
+            }
+          }
+        } catch (e) {
+          // localStorage bloqueado (navegación privada/política) → fallback light
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>Necesitas JavaScript para usar Sapientia.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

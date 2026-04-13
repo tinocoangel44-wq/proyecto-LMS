@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 
-// Obtener todas las categorías activas
+// ─── Categorías ───────────────────────────────────────────────────────────────
+
+/** Obtiene todas las categorías activas ordenadas por nombre. */
 export const getCategorias = async () => {
   const { data, error } = await supabase
     .from('categorias_cursos')
@@ -10,7 +12,9 @@ export const getCategorias = async () => {
   return { data, error };
 };
 
-// Obtener todos los cursos (con categoría, docentes relacionados y creador)
+// ─── Cursos ───────────────────────────────────────────────────────────────────
+
+/** Obtiene todos los cursos no eliminados (con categoría y docentes). */
 export const getCursos = async () => {
   const { data, error } = await supabase
     .from('cursos')
@@ -26,7 +30,7 @@ export const getCursos = async () => {
   return { data, error };
 };
 
-// Obtener cursos publicados (catálogo público para estudiantes)
+/** Obtiene cursos publicados (catálogo público para estudiantes). */
 export const getCursosPublicados = async () => {
   const { data, error } = await supabase
     .from('cursos')
@@ -42,7 +46,7 @@ export const getCursosPublicados = async () => {
   return { data, error };
 };
 
-// Verificar si ya existe un curso con el mismo título (evitar duplicados)
+/** Verifica si ya existe un curso con el mismo título. */
 export const checkCursoExiste = async (titulo, excludeId = null) => {
   let query = supabase
     .from('cursos')
@@ -50,66 +54,155 @@ export const checkCursoExiste = async (titulo, excludeId = null) => {
     .ilike('titulo', titulo.trim())
     .neq('estado', 'eliminado');
 
-  if (excludeId) {
-    query = query.neq('id', excludeId);
-  }
+  if (excludeId) query = query.neq('id', excludeId);
 
   const { data, error } = await query;
   return { existe: data && data.length > 0, error };
 };
 
-// Crear un nuevo curso y asignar docente en curso_docentes
-export const createCurso = async (cursoData, docentePerfilId = null) => {
-  const payload = {
-    titulo: cursoData.titulo.trim(),
-    descripcion: cursoData.descripcion || null,
-    categoria_id: cursoData.categoria_id || null,
-    imagen_url: cursoData.imagen_url || null,
-    fecha_inicio: cursoData.fecha_inicio || null,
-    fecha_fin: cursoData.fecha_fin || null,
-    estado: cursoData.estado || 'publicado',
-    creado_por: cursoData.creado_por,
-  };
+// ─── Imagen de portada ────────────────────────────────────────────────────────
 
-  const { data, error } = await supabase
-    .from('cursos')
-    .insert([payload])
-    .select()
-    .single();
+/**
+ * Sube una imagen al bucket "cursos-imagenes" de Supabase Storage.
+ * @param {File}   file        Archivo a subir
+ * @param {string} [cursoId]   UUID del curso (se usa para nombrar el archivo)
+ * @returns {{ url: string|null, error: Error|null }}
+ */
+export const uploadCursoImagen = async (file, cursoId = null) => {
+  try {
+    // Generar nombre único: cursoId o timestamp + nombre limpio
+    const ext       = file.name.split('.').pop().toLowerCase();
+    const baseName  = cursoId ?? `nuevo-${Date.now()}`;
+    const filePath  = `portadas/${baseName}.${ext}`;
 
-  if (error) return { data: null, error };
+    // Subir (upsert para permitir reemplazo en edición)
+    const { error: uploadError } = await supabase.storage
+      .from('cursos-imagenes')
+      .upload(filePath, file, { upsert: true, contentType: file.type });
 
-  // Asignar el docente a curso_docentes automáticamente si se provee
-  if (docentePerfilId && data?.id) {
-    await supabase.from('curso_docentes').insert([{
-      curso_id: data.id,
-      docente_id: docentePerfilId,
-    }]);
+    if (uploadError) throw uploadError;
+
+    // Obtener URL pública
+    const { data } = supabase.storage
+      .from('cursos-imagenes')
+      .getPublicUrl(filePath);
+
+    return { url: data.publicUrl, error: null };
+  } catch (error) {
+    console.error('Error subiendo imagen de curso:', error.message);
+    return { url: null, error };
   }
-
-  return { data, error: null };
 };
 
-// Editar curso existente
-export const updateCurso = async (id, cursoData) => {
-  const { data, error } = await supabase
-    .from('cursos')
-    .update({
-      titulo: cursoData.titulo?.trim(),
-      descripcion: cursoData.descripcion,
+/**
+ * Elimina una imagen del bucket cuando se cambia o se borra el curso.
+ * @param {string} publicUrl  URL pública de la imagen almacenada
+ */
+export const deleteCursoImagen = async (publicUrl) => {
+  try {
+    // Extraer el path relativo desde la URL pública
+    const marker  = '/cursos-imagenes/';
+    const idx     = publicUrl.indexOf(marker);
+    if (idx === -1) return;
+    const filePath = publicUrl.slice(idx + marker.length);
+
+    await supabase.storage.from('cursos-imagenes').remove([filePath]);
+  } catch (error) {
+    console.error('Error eliminando imagen de curso:', error.message);
+  }
+};
+
+// ─── CRUD Cursos ──────────────────────────────────────────────────────────────
+
+/**
+ * Crea un nuevo curso.
+ * Si se proporciona un archivo de imagen, lo sube primero y guarda la URL.
+ * @param {object} cursoData        Datos del formulario (incluye imageFile si hay archivo)
+ * @param {string} [docentePerfilId]
+ */
+export const createCurso = async (cursoData, docentePerfilId = null) => {
+  try {
+    let imagenUrl = cursoData.imagen_url || null;
+
+    // Prioridad: archivo > URL
+    if (cursoData.imageFile) {
+      const { url, error: imgErr } = await uploadCursoImagen(cursoData.imageFile);
+      if (imgErr) throw new Error('No se pudo subir la imagen: ' + imgErr.message);
+      imagenUrl = url;
+    }
+
+    const payload = {
+      titulo:      cursoData.titulo.trim(),
+      descripcion: cursoData.descripcion || null,
       categoria_id: cursoData.categoria_id || null,
-      imagen_url: cursoData.imagen_url || null,
+      imagen_url:  imagenUrl,
       fecha_inicio: cursoData.fecha_inicio || null,
-      fecha_fin: cursoData.fecha_fin || null,
-      estado: cursoData.estado || 'publicado',
-    })
-    .eq('id', id)
-    .select()
-    .single();
-  return { data, error };
+      fecha_fin:    cursoData.fecha_fin    || null,
+      estado:       cursoData.estado       || 'publicado',
+      creado_por:   cursoData.creado_por,
+    };
+
+    const { data, error } = await supabase
+      .from('cursos')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Asignar docente automáticamente si se provee
+    if (docentePerfilId && data?.id) {
+      await supabase.from('curso_docentes').insert([{
+        curso_id:   data.id,
+        docente_id: docentePerfilId,
+      }]);
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error creando curso:', error.message);
+    return { data: null, error };
+  }
 };
 
-// Baja lógica de un curso
+/** Edita un curso existente. Si hay nuevo archivo de imagen, lo reemplaza. */
+export const updateCurso = async (id, cursoData) => {
+  try {
+    let imagenUrl = cursoData.imagen_url ?? undefined;
+
+    // Prioridad: archivo nuevo > URL mantenida
+    if (cursoData.imageFile) {
+      const { url, error: imgErr } = await uploadCursoImagen(cursoData.imageFile, id);
+      if (imgErr) throw new Error('No se pudo subir la imagen: ' + imgErr.message);
+      imagenUrl = url;
+    }
+
+    const updatePayload = {
+      titulo:       cursoData.titulo?.trim(),
+      descripcion:  cursoData.descripcion,
+      categoria_id: cursoData.categoria_id || null,
+      fecha_inicio: cursoData.fecha_inicio || null,
+      fecha_fin:    cursoData.fecha_fin    || null,
+      estado:       cursoData.estado       || 'publicado',
+    };
+    if (imagenUrl !== undefined) updatePayload.imagen_url = imagenUrl;
+
+    const { data, error } = await supabase
+      .from('cursos')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error actualizando curso:', error.message);
+    return { data: null, error };
+  }
+};
+
+/** Baja lógica de un curso (no elimina de la BD). */
 export const deleteCurso = async (id) => {
   const { data, error } = await supabase
     .from('cursos')

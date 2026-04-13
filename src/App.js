@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // ── Carga diferida (code splitting) para reducir el bundle inicial ─────────
@@ -49,8 +50,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+        <NotificationProvider>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
             {/* Rutas Públicas */}
             <Route path="/login"    element={<Login />} />
             <Route path="/registro" element={<Registro />} />
@@ -99,8 +101,9 @@ function App() {
             } />
 
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </NotificationProvider>
       </BrowserRouter>
     </AuthProvider>
   );

@@ -15,8 +15,20 @@ const CourseCardSkeleton = () => (
   </div>
 );
 
+// Paleta de gradientes para el placeholder según índice
+const PLACEHOLDER_GRADIENTS = [
+  'from-blue-500 to-indigo-600',
+  'from-violet-500 to-purple-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-amber-600',
+  'from-rose-500 to-pink-600',
+  'from-cyan-500 to-blue-600',
+];
+
 // Card individual de curso
-const CourseCard = ({ curso, showActions = false, onEdit, onDelete }) => {
+const CourseCard = ({ curso, showActions = false, onEdit, onDelete, index = 0 }) => {
+  const [imgError, setImgError] = React.useState(false);
+
   const docentes = curso.curso_docentes
     ?.map(cd => cd.perfiles_usuarios?.nombre_completo)
     .filter(Boolean)
@@ -24,39 +36,62 @@ const CourseCard = ({ curso, showActions = false, onEdit, onDelete }) => {
 
   const estadoColor = {
     publicado: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    borrador: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    archivado: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    borrador:  'bg-amber-100  text-amber-700  dark:bg-amber-900/30  dark:text-amber-400',
+    archivado: 'bg-slate-100  text-slate-600  dark:bg-slate-800     dark:text-slate-400',
   };
+
+  const gradiente = PLACEHOLDER_GRADIENTS[index % PLACEHOLDER_GRADIENTS.length];
+  const isStorage = curso.imagen_url?.includes('supabase') || curso.imagen_url?.includes('cursos-imagenes');
 
   return (
     <div className="group bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
       {/* Imagen de portada */}
-      <div className="relative h-44 bg-gradient-to-br from-primary-500 to-indigo-600 overflow-hidden flex-shrink-0">
-        {curso.imagen_url ? (
+      <div className={`relative h-44 bg-gradient-to-br ${gradiente} overflow-hidden flex-shrink-0`}>
+        {curso.imagen_url && !imgError ? (
           <img
             src={curso.imagen_url}
             alt={curso.titulo}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => { e.target.style.display = 'none'; }}
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center opacity-20">
-            <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+          /* Placeholder elegante con icono y título sintetizado */
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
+              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <p className="text-white/70 text-xs font-medium text-center line-clamp-2 max-w-[160px]">
+              {imgError ? 'Imagen no disponible' : 'Sin imagen de portada'}
+            </p>
           </div>
         )}
+
         {/* Badge de estado */}
         <div className="absolute top-3 right-3">
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full capitalize ${estadoColor[curso.estado] || estadoColor.borrador}`}>
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full capitalize shadow-sm ${estadoColor[curso.estado] || estadoColor.borrador}`}>
             {curso.estado}
           </span>
         </div>
+
         {/* Badge de categoría */}
         {curso.categorias_cursos?.nombre && (
           <div className="absolute bottom-3 left-3">
             <span className="text-xs bg-black/40 backdrop-blur-sm text-white px-2.5 py-1 rounded-full">
               {curso.categorias_cursos.nombre}
+            </span>
+          </div>
+        )}
+
+        {/* Indicador: imagen guardada en Storage */}
+        {isStorage && !imgError && (
+          <div className="absolute bottom-3 right-3">
+            <span className="flex items-center gap-1 text-[10px] bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
+              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              Storage
             </span>
           </div>
         )}
@@ -154,10 +189,11 @@ const CourseList = ({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-      {cursos.map(curso => (
+      {cursos.map((curso, i) => (
         <CourseCard
           key={curso.id}
           curso={curso}
+          index={i}
           showActions={showActions}
           onEdit={onEdit}
           onDelete={onDelete}

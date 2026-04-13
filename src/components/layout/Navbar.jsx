@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import NotificationBell from '../NotificationBell';
 
 // ── Breadcrumb mapping ─────────────────────────────────────────────────────
 const BREADCRUMB_MAP = {
@@ -27,59 +28,7 @@ const getBreadcrumb = (pathname) => {
   return result;
 };
 
-// ── Notification dot (decorativo) ─────────────────────────────────────────
-const NotifBell = () => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover hover:text-slate-700 dark:hover:text-slate-200 transition-all"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" strokeLinecap="round" />
-        </svg>
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-dark-card animate-pulse-slow" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-11 w-72 bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-2xl shadow-dropdown animate-slide-down z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-dark-border flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-800 dark:text-white">Notificaciones</span>
-            <span className="badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">3</span>
-          </div>
-          <div className="divide-y divide-slate-100 dark:divide-dark-border">
-            {[
-              { icon: '📚', msg: 'Nueva tarea disponible en Matemáticas', time: '5 min' },
-              { icon: '✅', msg: 'Tu entrega fue calificada con 95/100', time: '1h' },
-              { icon: '💬', msg: 'Nuevo mensaje en el foro del curso', time: '2h' },
-            ].map((n, i) => (
-              <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-dark-hover transition-colors cursor-pointer">
-                <span className="text-xl flex-shrink-0">{n.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug">{n.msg}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Hace {n.time}</p>
-                </div>
-                <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" />
-              </div>
-            ))}
-          </div>
-          <div className="px-4 py-2.5 text-center border-t border-slate-100 dark:border-dark-border">
-            <span className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline cursor-pointer">Ver todas →</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+// NotifBell real importado desde NotificationBell.jsx (conectado a Supabase Realtime)
 
 // ── User menu ──────────────────────────────────────────────────────────────
 const UserMenu = ({ perfil, role, onLogout }) => {
@@ -228,8 +177,8 @@ const Navbar = ({ toggleSidebar, isCollapsed }) => {
             )}
           </button>
 
-          {/* Notificaciones */}
-          <NotifBell />
+          {/* Notificaciones — Realtime desde Supabase */}
+          <NotificationBell />
 
           <div className="w-px h-6 bg-slate-200 dark:bg-dark-border mx-0.5 hidden sm:block" />
 

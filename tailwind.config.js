@@ -17,6 +17,19 @@ module.exports = {
           800: '#075985',
           900: '#0c4a6e',
         },
+        sapientia: {
+          50:  '#fff1f2',
+          100: '#ffe0e3',
+          200: '#ffc7cc',
+          300: '#ff9aa3',
+          400: '#ff5f6f',
+          500: '#e02035',
+          600: '#c62828',
+          700: '#9b1c1c',
+          800: '#7f1d1d',
+          900: '#450a0a',
+          wine: '#880e4f',
+        },
         dark: {
           bg:      '#0f172a',
           surface: '#131c31',
@@ -75,6 +88,10 @@ module.exports = {
           '0%':   { backgroundPosition: '-1000px 0' },
           '100%': { backgroundPosition: '1000px 0' },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px) scale(1)' },
+          '50%':      { transform: 'translateY(-18px) scale(1.02)' },
+        },
         'bounce-in': {
           '0%':   { transform: 'scale(0.8)', opacity: '0' },
           '60%':  { transform: 'scale(1.05)' },
@@ -83,6 +100,11 @@ module.exports = {
         'sidebar-open': {
           '0%':   { width: '4.5rem' },
           '100%': { width: '16rem' },
+        },
+        'ping-once': {
+          '0%':   { transform: 'scale(1)',   opacity: '1' },
+          '50%':  { transform: 'scale(1.6)', opacity: '0.6' },
+          '100%': { transform: 'scale(1)',   opacity: '1' },
         },
       },
       animation: {
@@ -94,6 +116,8 @@ module.exports = {
         'pulse-slow':     'pulse-slow 2s ease-in-out infinite',
         'bounce-in':      'bounce-in 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         'spin-slow':      'spin 3s linear infinite',
+        'float':          'float 8s ease-in-out infinite',
+        'ping-once':      'ping-once 0.5s ease-out',
       },
       backdropBlur: {
         xs: '2px',
