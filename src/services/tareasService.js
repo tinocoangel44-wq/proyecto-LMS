@@ -1,45 +1,151 @@
 import { supabase } from './supabase';
 
-// Docente/Admin: Crear una nueva tarea para un curso
-export const createTarea = async (tareaData) => {
-  const { data, error } = await supabase
-    .from('tareas')
-    .insert([tareaData])
-    .select()
-    .single();
-  return { data, error };
-};
+// ── TAREAS ─────────────────────────────────────────────────────────────────
 
-// Global: Obtener listado de tareas asignadas para un curso específico
+// Obtener tareas de un curso con conteo de entregas
 export const getTareasPorCurso = async (cursoId) => {
   const { data, error } = await supabase
     .from('tareas')
-    .select('*')
+    .select(`
+      *,
+      entregas_tareas (id, estado)
+    `)
     .eq('curso_id', cursoId)
-    .order('fecha_limite', { ascending: true });
+    .neq('estado', 'eliminada')
+    .order('fecha_limite', { ascending: true, nullsFirst: false });
   return { data, error };
 };
 
-// Estudiante: Enviar una entrega de actividad
-export const enviarEntrega = async (entregaData) => {
+// Crear tarea
+export const createTarea = async (tareaData) => {
   const { data, error } = await supabase
-    .from('entregas_tareas')
-    .insert([{...entregaData, fecha_entrega: new Date().toISOString()}])
+    .from('tareas')
+    .insert([{
+      curso_id: tareaData.curso_id,
+      creado_por: tareaData.creado_por,
+      modulo_id: tareaData.modulo_id || null,
+      titulo: tareaData.titulo?.trim(),
+      instrucciones: tareaData.instrucciones || null,
+      fecha_limite: tareaData.fecha_limite || null,
+      ponderacion: tareaData.ponderacion || 100,
+      estado: 'publicada',
+    }])
     .select()
     .single();
   return { data, error };
 };
 
-// Estudiante: Obtener histórico de las entregas que ya completó en ese curso
+// Actualizar tarea
+export const updateTarea = async (id, data) => {
+  const result = await supabase
+    .from('tareas')
+    .update({
+      titulo: data.titulo?.trim(),
+      instrucciones: data.instrucciones,
+      fecha_limite: data.fecha_limite || null,
+      ponderacion: data.ponderacion,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  return result;
+};
+
+// Eliminar tarea (soft delete)
+export const deleteTarea = async (id) => {
+  const { data, error } = await supabase
+    .from('tareas')
+    .update({ estado: 'eliminada' })
+    .eq('id', id);
+  return { data, error };
+};
+
+// ── ENTREGAS ───────────────────────────────────────────────────────────────
+
+// Enviar entrega de estudiante
+export const enviarEntrega = async (entregaData) => {
+  const { data, error } = await supabase
+    .from('entregas_tareas')
+    .insert([{
+      tarea_id: entregaData.tarea_id,
+      estudiante_id: entregaData.estudiante_id,
+      texto_entrega: entregaData.texto_entrega || null,
+      enlace_entrega: entregaData.enlace_entrega || null,
+      fecha_entrega: new Date().toISOString(),
+      estado: 'entregada',
+    }])
+    .select()
+    .single();
+  return { data, error };
+};
+
+// Obtener entregas del estudiante en un curso
 export const getMisEntregas = async (estudianteId, cursoId) => {
-  // Aquí usamos un JOIN inverso partiendo de entregas -> tareas, donde la tarea pertenezca al curso
   const { data, error } = await supabase
     .from('entregas_tareas')
     .select(`
       *,
-      tareas!inner(curso_id, titulo)
+      tareas!inner (curso_id, titulo),
+      calificaciones (calificacion, retroalimentacion, fecha_calificacion)
     `)
     .eq('estudiante_id', estudianteId)
     .eq('tareas.curso_id', cursoId);
+  return { data, error };
+};
+
+// ── CALIFICACIONES ─────────────────────────────────────────────────────────
+
+// Obtener todas las entregas de una tarea (para docente)
+export const getEntregasDeTarea = async (tareaId) => {
+  const { data, error } = await supabase
+    .from('entregas_tareas')
+    .select(`
+      *,
+      perfiles_usuarios (id, nombre_completo, avatar_url),
+      calificaciones (id, calificacion, retroalimentacion, fecha_calificacion)
+    `)
+    .eq('tarea_id', tareaId)
+    .order('fecha_entrega', { ascending: true });
+  return { data, error };
+};
+
+// Asentar o actualizar calificación
+export const asentarCalificacion = async ({
+  estudianteId, docenteId, tipoOrigen, origenId, calificacion, retroalimentacion
+}) => {
+  const payload = {
+    estudiante_id: estudianteId,
+    docente_id: docenteId,
+    tipo_origen: tipoOrigen,
+    calificacion: parseFloat(calificacion),
+    retroalimentacion: retroalimentacion || null,
+    entrega_id: tipoOrigen === 'tarea' ? origenId : null,
+    intento_id: tipoOrigen === 'cuestionario' ? origenId : null,
+  };
+
+  const { data, error } = await supabase
+    .from('calificaciones')
+    .insert([payload])
+    .select()
+    .single();
+
+  // Marcar entrega como calificada
+  if (!error && tipoOrigen === 'tarea') {
+    await supabase
+      .from('entregas_tareas')
+      .update({ estado: 'calificada' })
+      .eq('id', origenId);
+  }
+
+  return { data, error };
+};
+
+// Obtener tarea por ID (para mostrar título en EvaluadorDocente)
+export const getTareaById = async (tareaId) => {
+  const { data, error } = await supabase
+    .from('tareas')
+    .select(`*, cursos(titulo)`)
+    .eq('id', tareaId)
+    .single();
   return { data, error };
 };
