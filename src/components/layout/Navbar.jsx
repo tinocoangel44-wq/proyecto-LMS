@@ -1,17 +1,31 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { signOut } from '../../services/auth';
+import { supabase } from '../../services/supabase';
 import { useNavigate } from 'react-router-dom';
 
 const Navbar = ({ toggleSidebar }) => {
-  const { user, perfil } = useAuth();
+  const { user, perfil, setUser, setRole, setPerfil } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error al cerrar sesión:", error.message);
+        return;
+      }
+      // Limpia el usuario del contexto global para garantizar un desmonte inmediato
+      setUser(null);
+      setRole(null);
+      setPerfil(null);
+      
+      // Redirige automáticamente al usuario sin esperar el broadcast onAuthStateChange
+      navigate('/login');
+    } catch (err) {
+      console.error("Excepción inesperada durante cierre de sesión:", err);
+    }
   };
 
   return (
