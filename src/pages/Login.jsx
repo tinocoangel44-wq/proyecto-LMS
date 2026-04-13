@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn, registerStudent } from '../services/auth';
-import { supabase } from '../services/supabase';
+import { signIn, registerStudent, signInWithGoogle } from '../services/auth';
 
 /* ══════════════════════════════════════════════
    Íconos SVG inline — sin dependencias externas
@@ -27,8 +26,7 @@ const IC = {
   ),
   EyeOn: () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
     </svg>
@@ -76,23 +74,36 @@ const IC = {
 };
 
 /* ══════════════════════════════════════════════
-   Componentes de mensaje reutilizables
+   Mensajes de feedback
    ══════════════════════════════════════════════ */
 const ErrorMsg = ({ children }) => (
-  <div className="flex items-start gap-2.5 rounded-xl px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200 animate-slide-down">
+  <div style={{
+    display:'flex', alignItems:'flex-start', gap:'0.625rem',
+    borderRadius:'0.75rem', padding:'0.75rem 1rem',
+    fontSize:'0.875rem', color:'#b91c1c',
+    background:'#fef2f2', border:'1px solid #fecaca',
+    animation:'authSlideDown 0.2s ease-out both',
+  }}>
     <IC.Alert />
     <span>{children}</span>
   </div>
 );
+
 const SuccessMsg = ({ children }) => (
-  <div className="flex items-start gap-2.5 rounded-xl px-4 py-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 animate-slide-down">
+  <div style={{
+    display:'flex', alignItems:'flex-start', gap:'0.625rem',
+    borderRadius:'0.75rem', padding:'0.75rem 1rem',
+    fontSize:'0.875rem', color:'#065f46',
+    background:'#ecfdf5', border:'1px solid #a7f3d0',
+    animation:'authSlideDown 0.2s ease-out both',
+  }}>
     <IC.Check />
     <span>{children}</span>
   </div>
 );
 
 /* ══════════════════════════════════════════════
-   PASSWORD STRENGTH BAR
+   Password Strength Bar
    ══════════════════════════════════════════════ */
 const PasswordStrength = ({ password }) => {
   if (!password) return null;
@@ -106,14 +117,17 @@ const PasswordStrength = ({ password }) => {
   const colors = ['', '#ef4444', '#f97316', '#eab308', '#22c55e'];
   const labels = ['', 'Muy débil', 'Débil', 'Segura', 'Muy segura'];
   return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex gap-1">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="flex-1 h-1 rounded-full transition-all duration-300"
-            style={{ background: i <= strength ? colors[strength] : '#e2e8f0' }} />
+    <div style={{ marginTop:'0.5rem' }}>
+      <div style={{ display:'flex', gap:'4px', marginBottom:'4px' }}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{
+            flex:1, height:'4px', borderRadius:'9999px',
+            background: i <= strength ? colors[strength] : '#e2e8f0',
+            transition:'background 0.3s',
+          }} />
         ))}
       </div>
-      <p className="text-xs" style={{ color: strength > 0 ? colors[strength] : '#94a3b8' }}>
+      <p style={{ fontSize:'0.75rem', color: strength > 0 ? colors[strength] : '#94a3b8' }}>
         {labels[strength]}
       </p>
     </div>
@@ -121,7 +135,7 @@ const PasswordStrength = ({ password }) => {
 };
 
 /* ══════════════════════════════════════════════
-   FORGOT PASSWORD
+   Forgot Password
    ══════════════════════════════════════════════ */
 const ForgotPassword = ({ onBack }) => {
   const [email,   setEmail]   = useState('');
@@ -143,30 +157,37 @@ const ForgotPassword = ({ onBack }) => {
   };
 
   return (
-    <div className="space-y-5">
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div>
-        <h2 className="text-lg font-bold text-slate-800">Recuperar contraseña</h2>
-        <p className="text-sm text-slate-500 mt-1">
+        <h2 style={{ fontSize:'1.125rem', fontWeight:700, color:'#0f172a', margin:0 }}>
+          Recuperar contraseña
+        </h2>
+        <p style={{ fontSize:'0.875rem', color:'#64748b', marginTop:'0.25rem' }}>
           Ingresa tu correo y te enviaremos un enlace para restablecerla.
         </p>
       </div>
       {err && <ErrorMsg>{err}</ErrorMsg>}
       {msg && <SuccessMsg>{msg}</SuccessMsg>}
-      <form onSubmit={handle} className="space-y-4">
+      <form onSubmit={handle} style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
         <div>
-          <label htmlFor="forgot-email" className="label-field">Correo electrónico</label>
-          <div className="input-wrap">
-            <span className="input-icon"><IC.Mail /></span>
+          <label htmlFor="forgot-email" className="lf-label">Correo electrónico</label>
+          <div className="lf-wrap">
+            <span className="lf-icon"><IC.Mail /></span>
             <input id="forgot-email" type="email" required disabled={loading}
               value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="usuario@sapientia.com" className="input-field" />
+              placeholder="usuario@sapientia.com" className="lf-input" />
           </div>
         </div>
-        <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? <span className="btn-loading"><IC.Spinner /> Enviando…</span> : 'Enviar enlace de recuperación'}
+        <button type="submit" disabled={loading} className="lf-btn-primary">
+          {loading
+            ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}><IC.Spinner /> Enviando…</span>
+            : 'Enviar enlace de recuperación'}
         </button>
       </form>
-      <button onClick={onBack} className="w-full text-sm text-slate-400 hover:text-slate-600 transition-colors py-1">
+      <button onClick={onBack}
+        style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.875rem', color:'#94a3b8', padding:'0.25rem 0' }}
+        onMouseEnter={e => e.target.style.color='#475569'}
+        onMouseLeave={e => e.target.style.color='#94a3b8'}>
         ← Volver al inicio de sesión
       </button>
     </div>
@@ -178,32 +199,34 @@ const ForgotPassword = ({ onBack }) => {
    ══════════════════════════════════════════════ */
 const Login = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [tab, setTab] = useState('login');
 
-  /* —— Estado Login —— */
+  /* —— Login —— */
   const [loginEmail,    setLoginEmail]    = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPwd,       setShowPwd]       = useState(false);
   const [loginError,    setLoginError]    = useState('');
   const [loginLoading,  setLoginLoading]  = useState(false);
 
-  /* —— Estado Registro —— */
-  const [regNombre,   setRegNombre]   = useState('');
-  const [regEmail,    setRegEmail]    = useState('');
-  const [regPwd,      setRegPwd]      = useState('');
-  const [regPwdConf,  setRegPwdConf]  = useState('');
-  const [showRegPwd,  setShowRegPwd]  = useState(false);
-  const [regError,    setRegError]    = useState('');
-  const [regSuccess,  setRegSuccess]  = useState('');
-  const [regLoading,  setRegLoading]  = useState(false);
+  /* —— Google OAuth —— */
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError,   setGoogleError]   = useState('');
 
-  /* —— Limpiar mensajes al cambiar pestaña —— */
+  /* —— Registro —— */
+  const [regNombre,  setRegNombre]  = useState('');
+  const [regEmail,   setRegEmail]   = useState('');
+  const [regPwd,     setRegPwd]     = useState('');
+  const [regPwdConf, setRegPwdConf] = useState('');
+  const [showRegPwd, setShowRegPwd] = useState(false);
+  const [regError,   setRegError]   = useState('');
+  const [regSuccess, setRegSuccess] = useState('');
+  const [regLoading, setRegLoading] = useState(false);
+
   const switchTab = (t) => {
     setTab(t);
     setLoginError(''); setRegError(''); setRegSuccess('');
   };
 
-  /* ── Handler: Login ─────────────────────────────────── */
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -219,30 +242,39 @@ const Login = () => {
     }
   };
 
-  /* ── Handler: Google OAuth ──────────────────────────── */
+  /**
+   * Inicia el flujo OAuth con Google.
+   * Después del redirect, Supabase llama a onAuthStateChange(SIGNED_IN)
+   * y AuthContext creará el perfil automáticamente si es la primera vez.
+   */
   const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
+    if (googleLoading) return;
+    setGoogleError('');
+    setGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setGoogleError('No se pudo conectar con Google. Inténtalo de nuevo.');
+        setGoogleLoading(false);
+      }
+      // Si no hay error, el navegador redirigirá a Google → no resetear loading
+    } catch {
+      setGoogleError('Error inesperado al conectar con Google.');
+      setGoogleLoading(false);
+    }
   };
 
-  /* ── Handler: Registro ──────────────────────────────── */
   const handleRegistro = async (e) => {
     e.preventDefault();
     setRegError(''); setRegSuccess('');
-    // Validaciones
-    if (!regNombre.trim())          { setRegError('El nombre completo es obligatorio.'); return; }
-    if (!regEmail.trim())           { setRegError('El correo institucional es obligatorio.'); return; }
-    if (!regEmail.includes('@'))    { setRegError('Ingresa un correo electrónico válido.'); return; }
-    if (regPwd.length < 6)          { setRegError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (regPwd !== regPwdConf)      { setRegError('Las contraseñas no coinciden.'); return; }
-
+    if (!regNombre.trim())       { setRegError('El nombre completo es obligatorio.'); return; }
+    if (!regEmail.trim())        { setRegError('El correo institucional es obligatorio.'); return; }
+    if (!regEmail.includes('@')) { setRegError('Ingresa un correo electrónico válido.'); return; }
+    if (regPwd.length < 6)       { setRegError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (regPwd !== regPwdConf)   { setRegError('Las contraseñas no coinciden.'); return; }
     setRegLoading(true);
-    // SIEMPRE registrar como estudiante — sin opción de elegir otro rol
     const { error } = await registerStudent(regEmail.trim(), regPwd, regNombre.trim());
     setRegLoading(false);
-
     if (error) {
       setRegError(error.message || 'Error al crear la cuenta. Inténtalo de nuevo.');
     } else {
@@ -251,397 +283,429 @@ const Login = () => {
     }
   };
 
-  /* ─────────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────── */
   return (
     <>
-      {/* ── Estilos globales del componente ── */}
+      {/* ══ CSS completamente aislado del árbol de dark mode ══ */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-        #sapientia-auth * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        /* Wrapper raíz: ocupa la ventana, aísla dark mode */
+        #sp-root {
+          position: fixed;
+          inset: 0;
+          overflow-y: auto;
+          color-scheme: light;
+          font-family: 'Inter', sans-serif;
+        }
 
-        /* Fondo con patrón sutil */
-        #sapientia-auth {
+        /* Contenedor de centrado */
+        #sp-auth {
           background: #f1f5f9;
           background-image:
-            radial-gradient(circle at 20% 35%, rgba(37,99,235,0.06) 0%, transparent 50%),
-            radial-gradient(circle at 80% 65%, rgba(99,102,241,0.05) 0%, transparent 50%);
-          min-height: 100vh;
+            radial-gradient(circle at 20% 35%, rgba(37,99,235,0.07) 0%, transparent 50%),
+            radial-gradient(circle at 80% 65%, rgba(99,102,241,0.06) 0%, transparent 50%);
+          min-height: 100%;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
+          padding: 2.5rem 1rem;
         }
 
         /* Card */
-        #sapientia-card {
+        #sp-card {
           background: #ffffff;
           border-radius: 1.25rem;
-          box-shadow:
-            0 1px 3px rgba(0,0,0,0.06),
-            0 8px 32px rgba(0,0,0,0.08),
-            0 1px 0 rgba(255,255,255,0.8) inset;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.09);
           width: 100%;
           max-width: 440px;
-          animation: cardIn 0.4s cubic-bezier(0.34,1.4,0.64,1) both;
-          border: 1px solid #e2e8f0;
+          animation: spCardIn 0.4s cubic-bezier(0.34,1.4,0.64,1) both;
         }
 
-        @keyframes cardIn {
-          from { opacity:0; transform: translateY(16px) scale(0.97); }
+        @keyframes spCardIn {
+          from { opacity:0; transform: translateY(18px) scale(0.97); }
           to   { opacity:1; transform: translateY(0)    scale(1);    }
         }
 
-        @keyframes slideDown {
+        @keyframes authSlideDown {
           from { opacity:0; transform: translateY(-6px); }
-          to   { opacity:1; transform: translateY(0);    }
+          to   { opacity:1; transform: translateY(0); }
         }
-        .animate-slide-down { animation: slideDown 0.2s ease-out both; }
 
-        /* Divisor lateral */
-        #sapientia-auth .left-panel {
-          display: none;
+        /* Tabs */
+        #sp-root .sp-tabs {
+          display: flex; background: #f1f5f9;
+          border-radius: 0.75rem; padding: 4px; gap: 4px;
+        }
+        #sp-root .sp-tab {
+          flex: 1; padding: 0.55rem 0.5rem;
+          font-size: 0.8125rem; font-weight: 600;
+          border-radius: 0.5rem; border: none;
+          background: transparent; color: #64748b;
+          cursor: pointer; transition: all 0.2s; outline: none;
+          font-family: 'Inter', sans-serif;
+        }
+        #sp-root .sp-tab.active {
+          background: #fff; color: #1e40af;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+        }
+        #sp-root .sp-tab:not(.active):hover { color: #334155; }
+
+        /* Fade tab */
+        #sp-root .sp-pane { animation: spFade 0.2s ease-out both; }
+        @keyframes spFade {
+          from { opacity:0; transform: translateY(4px); }
+          to   { opacity:1; transform: translateY(0); }
         }
 
         /* Labels */
-        .label-field {
-          display: block;
-          font-size: 0.75rem;
-          font-weight: 600;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: #475569;
-          margin-bottom: 0.4rem;
+        #sp-root .lf-label {
+          display: block; font-size: 0.75rem; font-weight: 600;
+          letter-spacing: 0.04em; text-transform: uppercase;
+          color: #475569; margin-bottom: 0.4rem;
         }
 
         /* Input wrapper */
-        .input-wrap { position: relative; display: flex; align-items: center; }
-        .input-icon { position: absolute; left: 0.875rem; color: #94a3b8; pointer-events: none; display: flex; align-items: center; }
+        #sp-root .lf-wrap  { position: relative; display: flex; align-items: center; }
+        #sp-root .lf-icon  {
+          position: absolute; left: 0.875rem; color: #94a3b8;
+          pointer-events: none; display: flex; align-items: center;
+        }
 
         /* Input */
-        .input-field {
-          width: 100%;
-          background: #f8fafc;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 0.625rem;
-          padding: 0.7rem 1rem 0.7rem 2.5rem;
-          font-size: 0.875rem;
-          color: #0f172a;
-          outline: none;
+        #sp-root .lf-input {
+          width: 100%; background: #f8fafc; border: 1.5px solid #e2e8f0;
+          border-radius: 0.625rem; padding: 0.7rem 1rem 0.7rem 2.5rem;
+          font-size: 0.875rem; color: #0f172a; outline: none;
           transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+          font-family: 'Inter', sans-serif;
         }
-        .input-field::placeholder { color: #94a3b8; }
-        .input-field:focus {
-          border-color: #2563eb;
-          background: #fff;
+        #sp-root .lf-input::placeholder { color: #94a3b8; }
+        #sp-root .lf-input:focus {
+          border-color: #2563eb; background: #fff;
           box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
         }
-        .input-field:disabled { opacity: 0.55; cursor: not-allowed; }
-        .input-field-pr { padding-right: 3rem; }
+        #sp-root .lf-input:disabled { opacity: 0.55; cursor: not-allowed; }
+        #sp-root .lf-input-pr { padding-right: 3rem; }
 
-        /* Btn principal */
-        .btn-primary {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          width: 100%;
-          padding: 0.75rem 1.25rem;
-          background: #2563eb;
-          color: #fff;
-          font-size: 0.875rem;
-          font-weight: 600;
-          border-radius: 0.625rem;
-          border: none;
-          cursor: pointer;
-          transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+        /* Botón principal */
+        #sp-root .lf-btn-primary {
+          display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+          width: 100%; padding: 0.75rem 1.25rem;
+          background: #2563eb; color: #fff;
+          font-size: 0.875rem; font-weight: 600;
+          border-radius: 0.625rem; border: none; cursor: pointer;
           box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+          transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+          font-family: 'Inter', sans-serif;
         }
-        .btn-primary:hover:not(:disabled) {
-          background: #1d4ed8;
-          transform: translateY(-1px);
+        #sp-root .lf-btn-primary:hover:not(:disabled) {
+          background: #1d4ed8; transform: translateY(-1px);
           box-shadow: 0 6px 16px rgba(37,99,235,0.35);
         }
-        .btn-primary:active:not(:disabled) { transform: translateY(0); }
-        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+        #sp-root .lf-btn-primary:active:not(:disabled) { transform: translateY(0); }
+        #sp-root .lf-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        .btn-secondary {
+        /* Botón secundario */
+        #sp-root .lf-btn-secondary {
           display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-          width: 100%;
-          padding: 0.7rem 1.25rem;
-          background: #fff;
-          color: #334155;
-          font-size: 0.875rem;
-          font-weight: 500;
-          border-radius: 0.625rem;
-          border: 1.5px solid #e2e8f0;
-          cursor: pointer;
+          width: 100%; padding: 0.7rem 1.25rem;
+          background: #fff; color: #334155;
+          font-size: 0.875rem; font-weight: 500;
+          border-radius: 0.625rem; border: 1.5px solid #e2e8f0; cursor: pointer;
           transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+          font-family: 'Inter', sans-serif;
         }
-        .btn-secondary:hover:not(:disabled) {
-          background: #f8fafc;
-          border-color: #cbd5e1;
+        #sp-root .lf-btn-secondary:hover:not(:disabled) {
+          background: #f8fafc; border-color: #cbd5e1;
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
-        .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+        #sp-root .lf-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        /* Tabs */
-        .auth-tabs { display: flex; background: #f1f5f9; border-radius: 0.75rem; padding: 4px; gap: 4px; }
-        .auth-tab {
-          flex: 1; padding: 0.55rem 0.5rem; font-size: 0.8125rem; font-weight: 600;
-          border-radius: 0.5rem; border: none; background: transparent;
-          color: #64748b; cursor: pointer; transition: all 0.2s; outline: none;
+        /* OR divider */
+        #sp-root .lf-divider {
+          display: flex; align-items: center; gap: 0.75rem;
+          color: #94a3b8; font-size: 0.75rem; font-weight: 500;
         }
-        .auth-tab.active {
-          background: #fff;
-          color: #1e40af;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+        #sp-root .lf-divider::before,
+        #sp-root .lf-divider::after {
+          content:''; flex:1; height:1px; background:#e2e8f0;
         }
-        .auth-tab:not(.active):hover { color: #334155; }
 
-        /* Divider */
-        .or-divider { display: flex; align-items: center; gap: 0.75rem; color: #94a3b8; font-size: 0.75rem; font-weight: 500; }
-        .or-divider::before, .or-divider::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+        /* Eye button */
+        #sp-root .lf-eye {
+          position: absolute; right: 0.875rem; color: #94a3b8;
+          background: none; border: none; cursor: pointer;
+          display: flex; align-items: center; padding: 0;
+          transition: color 0.15s;
+        }
+        #sp-root .lf-eye:hover { color: #475569; }
 
-        /* Fade for tab content */
-        .tab-pane { animation: fadeTab 0.2s ease-out both; }
-        @keyframes fadeTab { from { opacity:0; transform: translateY(5px); } to { opacity:1; transform: translateY(0); } }
-
-        .btn-loading { display:flex; align-items:center; justify-content:center; gap:0.5rem; }
-
-        /* Input password eye */
-        .eye-btn { position:absolute; right:0.875rem; color:#94a3b8; background:none; border:none; cursor:pointer; display:flex; align-items:center; padding:0; transition:color 0.15s; }
-        .eye-btn:hover { color:#475569; }
-
-        /* Badge estudiante */
-        .badge-estudiante {
+        /* Badge */
+        #sp-root .lf-badge {
           display: inline-flex; align-items: center; gap: 0.375rem;
           padding: 0.3rem 0.75rem; border-radius: 99px;
-          font-size: 0.75rem; font-weight: 600; color: #1d4ed8;
-          background: #eff6ff; border: 1px solid #bfdbfe;
+          font-size: 0.75rem; font-weight: 600;
+          color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe;
+          font-family: 'Inter', sans-serif;
         }
 
+        /* Copyright */
+        #sp-copy {
+          margin-top: 1.5rem;
+          text-align: center;
+          font-size: 0.6875rem;
+          color: #94a3b8;
+          font-family: 'Inter', sans-serif;
+        }
+
+        /* Responsive */
         @media (max-width: 480px) {
-          #sapientia-card { border-radius: 1rem; }
+          #sp-card  { border-radius: 1rem; }
+          #sp-auth  { padding: 1.5rem 0.75rem; justify-content: flex-start; padding-top: 2rem; }
         }
       `}</style>
 
-      {/* ── Página ── */}
-      <div id="sapientia-auth">
-        <div id="sapientia-card">
-          {/* Header / Branding */}
-          <div style={{ padding: '2rem 2rem 1.5rem', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-            {/* Logo */}
+      {/* ══ Wrapper: position:fixed = centrado 100% garantizado ══ */}
+      <div id="sp-root">
+        <div id="sp-auth">
+
+          {/* ── Card ── */}
+          <div id="sp-card">
+
+            {/* Header / Branding */}
             <div style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: '3.25rem', height: '3.25rem', borderRadius: '0.875rem',
-              background: 'linear-gradient(135deg,#2563eb,#4f46e5)',
-              boxShadow: '0 6px 18px rgba(37,99,235,0.3)', marginBottom: '0.875rem',
+              padding: '2rem 2rem 1.5rem',
+              textAlign: 'center',
+              borderBottom: '1px solid #f1f5f9',
             }}>
-              <IC.GraduationCap />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-              Sapientia
-            </h1>
-            <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0', fontWeight: 500 }}>
-              Plataforma de aprendizaje en línea
-            </p>
-          </div>
-
-          {/* Body */}
-          <div style={{ padding: '1.75rem 2rem 2rem' }}>
-
-            {/* ─── TABS ─── */}
-            {tab !== 'forgot' && (
-              <div className="auth-tabs" style={{ marginBottom: '1.5rem' }}>
-                <button id="tab-login"    className={`auth-tab ${tab === 'login'    ? 'active' : ''}`} onClick={() => switchTab('login')}>
-                  Iniciar sesión
-                </button>
-                <button id="tab-register" className={`auth-tab ${tab === 'register' ? 'active' : ''}`} onClick={() => switchTab('register')}>
-                  Crear cuenta
-                </button>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: '3.25rem', height: '3.25rem', borderRadius: '0.875rem',
+                background: 'linear-gradient(135deg,#2563eb,#4f46e5)',
+                boxShadow: '0 6px 18px rgba(37,99,235,0.3)',
+                marginBottom: '0.875rem',
+              }}>
+                <IC.GraduationCap />
               </div>
-            )}
+              <h1 style={{ fontSize:'1.5rem', fontWeight:800, color:'#0f172a', margin:0, letterSpacing:'-0.02em' }}>
+                Sapientia
+              </h1>
+              <p style={{ fontSize:'0.8125rem', color:'#64748b', margin:'0.25rem 0 0', fontWeight:500 }}>
+                Plataforma de aprendizaje en línea
+              </p>
+            </div>
 
-            {/* ═══════════ TAB: LOGIN ═══════════ */}
-            {tab === 'login' && (
-              <form id="login-form" className="tab-pane" onSubmit={handleLogin} noValidate>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Body */}
+            <div style={{ padding: '1.75rem 2rem 2rem' }}>
 
-                  {loginError && <ErrorMsg>{loginError}</ErrorMsg>}
-
-                  {/* Email */}
-                  <div>
-                    <label htmlFor="login-email" className="label-field">Correo electrónico</label>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.Mail /></span>
-                      <input id="login-email" type="email" autoComplete="email" required
-                        disabled={loginLoading} value={loginEmail}
-                        onChange={e => setLoginEmail(e.target.value)}
-                        placeholder="usuario@sapientia.com" className="input-field" />
-                    </div>
-                  </div>
-
-                  {/* Contraseña */}
-                  <div>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.4rem' }}>
-                      <label htmlFor="login-password" className="label-field" style={{ margin:0 }}>Contraseña</label>
-                      <button type="button" onClick={() => switchTab('forgot')}
-                        style={{ fontSize:'0.75rem', fontWeight:600, color:'#2563eb', background:'none', border:'none', cursor:'pointer', padding:0 }}>
-                        ¿Olvidaste tu contraseña?
-                      </button>
-                    </div>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.Lock /></span>
-                      <input id="login-password" type={showPwd ? 'text' : 'password'} autoComplete="current-password"
-                        disabled={loginLoading} value={loginPassword}
-                        onChange={e => setLoginPassword(e.target.value)}
-                        placeholder="••••••••" className="input-field input-field-pr" />
-                      <button type="button" className="eye-btn" onClick={() => setShowPwd(v => !v)} tabIndex={-1}>
-                        {showPwd ? <IC.EyeOff /> : <IC.EyeOn />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Btn Iniciar sesión */}
-                  <button id="login-submit" type="submit" disabled={loginLoading} className="btn-primary" style={{ marginTop:'0.25rem' }}>
-                    {loginLoading
-                      ? <span className="btn-loading"><IC.Spinner /> Iniciando sesión…</span>
-                      : 'Iniciar sesión'
-                    }
-                  </button>
-
-                  {/* Divider */}
-                  <div className="or-divider">o continúa con</div>
-
-                  {/* Google */}
-                  <button id="login-google" type="button" onClick={handleGoogle} disabled={loginLoading} className="btn-secondary">
-                    <IC.Google /> Continuar con Google
-                  </button>
-                </div>
-
-                <p style={{ textAlign:'center', fontSize:'0.8125rem', color:'#94a3b8', marginTop:'1.25rem' }}>
-                  ¿No tienes cuenta?{' '}
-                  <button type="button" onClick={() => switchTab('register')}
-                    style={{ color:'#2563eb', fontWeight:600, background:'none', border:'none', cursor:'pointer', padding:0 }}>
-                    Regístrate gratis
-                  </button>
-                </p>
-              </form>
-            )}
-
-            {/* ═══════════ TAB: REGISTRO ═══════════ */}
-            {tab === 'register' && (
-              <form id="register-form" className="tab-pane" onSubmit={handleRegistro} noValidate>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-                  {regError   && <ErrorMsg>{regError}</ErrorMsg>}
-                  {regSuccess && <SuccessMsg>{regSuccess}</SuccessMsg>}
-
-                  {/* Badge: siempre estudiante */}
-                  <div style={{ display:'flex', justifyContent:'center' }}>
-                    <span className="badge-estudiante">
-                      <IC.Shield /> Registro como Estudiante
-                    </span>
-                  </div>
-
-                  {/* Nombre */}
-                  <div>
-                    <label htmlFor="reg-nombre" className="label-field">Nombre completo</label>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.User /></span>
-                      <input id="reg-nombre" type="text" autoComplete="name" required
-                        disabled={regLoading} value={regNombre}
-                        onChange={e => setRegNombre(e.target.value)}
-                        placeholder="Tu nombre completo" className="input-field" />
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label htmlFor="reg-email" className="label-field">Correo electrónico</label>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.Mail /></span>
-                      <input id="reg-email" type="email" autoComplete="email" required
-                        disabled={regLoading} value={regEmail}
-                        onChange={e => setRegEmail(e.target.value)}
-                        placeholder="usuario@sapientia.com" className="input-field" />
-                    </div>
-                  </div>
-
-                  {/* Contraseña */}
-                  <div>
-                    <label htmlFor="reg-password" className="label-field">Contraseña</label>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.Lock /></span>
-                      <input id="reg-password" type={showRegPwd ? 'text' : 'password'} autoComplete="new-password" required
-                        minLength={6} disabled={regLoading} value={regPwd}
-                        onChange={e => setRegPwd(e.target.value)}
-                        placeholder="Mínimo 6 caracteres" className="input-field input-field-pr" />
-                      <button type="button" className="eye-btn" onClick={() => setShowRegPwd(v => !v)} tabIndex={-1}>
-                        {showRegPwd ? <IC.EyeOff /> : <IC.EyeOn />}
-                      </button>
-                    </div>
-                    <PasswordStrength password={regPwd} />
-                  </div>
-
-                  {/* Confirmar contraseña */}
-                  <div>
-                    <label htmlFor="reg-confirm" className="label-field">Confirmar contraseña</label>
-                    <div className="input-wrap">
-                      <span className="input-icon"><IC.Lock /></span>
-                      <input id="reg-confirm" type={showRegPwd ? 'text' : 'password'} autoComplete="new-password" required
-                        disabled={regLoading} value={regPwdConf}
-                        onChange={e => setRegPwdConf(e.target.value)}
-                        placeholder="Repite tu contraseña"
-                        className="input-field input-field-pr"
-                        style={ regPwdConf && regPwdConf !== regPwd ? { borderColor:'#f87171' } : {} }
-                      />
-                      {regPwdConf && (
-                        <span style={{
-                          position:'absolute', right:'0.875rem',
-                          color: regPwdConf === regPwd ? '#22c55e' : '#f87171',
-                          display:'flex', alignItems:'center',
-                        }}>
-                          {regPwdConf === regPwd ? <IC.Check /> : <IC.Alert />}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Btn Registrarse */}
-                  <button id="register-submit" type="submit" disabled={regLoading} className="btn-primary" style={{ marginTop:'0.25rem' }}>
-                    {regLoading
-                      ? <span className="btn-loading"><IC.Spinner /> Creando cuenta…</span>
-                      : 'Crear cuenta'
-                    }
-                  </button>
-                </div>
-
-                <p style={{ textAlign:'center', fontSize:'0.8125rem', color:'#94a3b8', marginTop:'1.25rem' }}>
-                  ¿Ya tienes cuenta?{' '}
-                  <button type="button" onClick={() => switchTab('login')}
-                    style={{ color:'#2563eb', fontWeight:600, background:'none', border:'none', cursor:'pointer', padding:0 }}>
+              {/* TABS */}
+              {tab !== 'forgot' && (
+                <div className="sp-tabs" style={{ marginBottom:'1.5rem' }}>
+                  <button id="tab-login"
+                    className={`sp-tab ${tab === 'login' ? 'active' : ''}`}
+                    onClick={() => switchTab('login')}>
                     Iniciar sesión
                   </button>
-                </p>
-              </form>
-            )}
+                  <button id="tab-register"
+                    className={`sp-tab ${tab === 'register' ? 'active' : ''}`}
+                    onClick={() => switchTab('register')}>
+                    Crear cuenta
+                  </button>
+                </div>
+              )}
 
-            {/* ═══════════ TAB: FORGOT PASSWORD ═══════════ */}
-            {tab === 'forgot' && (
-              <div className="tab-pane">
-                <ForgotPassword onBack={() => switchTab('login')} />
-              </div>
-            )}
-          </div>
-        </div>
+              {/* ─── LOGIN ─── */}
+              {tab === 'login' && (
+                <form id="login-form" className="sp-pane" onSubmit={handleLogin} noValidate>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
 
-        {/* Copyright */}
-        <p style={{ textAlign:'center', marginTop:'1.5rem', fontSize:'0.6875rem', color:'#94a3b8' }}>
-          © 2026 Sapientia · Plataforma de aprendizaje en línea
-        </p>
-      </div>
+                    {loginError && <ErrorMsg>{loginError}</ErrorMsg>}
+
+                    {/* Email */}
+                    <div>
+                      <label htmlFor="login-email" className="lf-label">Correo electrónico</label>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.Mail /></span>
+                        <input id="login-email" type="email" autoComplete="email" required
+                          disabled={loginLoading} value={loginEmail}
+                          onChange={e => setLoginEmail(e.target.value)}
+                          placeholder="usuario@sapientia.com"
+                          className="lf-input" />
+                      </div>
+                    </div>
+
+                    {/* Contraseña */}
+                    <div>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.4rem' }}>
+                        <label htmlFor="login-password" className="lf-label" style={{ margin:0 }}>Contraseña</label>
+                        <button type="button" onClick={() => switchTab('forgot')}
+                          style={{ fontSize:'0.75rem', fontWeight:600, color:'#2563eb', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'Inter,sans-serif' }}>
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.Lock /></span>
+                        <input id="login-password" type={showPwd ? 'text' : 'password'} autoComplete="current-password"
+                          disabled={loginLoading} value={loginPassword}
+                          onChange={e => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="lf-input lf-input-pr" />
+                        <button type="button" className="lf-eye" onClick={() => setShowPwd(v => !v)} tabIndex={-1}>
+                          {showPwd ? <IC.EyeOff /> : <IC.EyeOn />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button id="login-submit" type="submit" disabled={loginLoading}
+                      className="lf-btn-primary" style={{ marginTop:'0.25rem' }}>
+                      {loginLoading
+                        ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}><IC.Spinner /> Iniciando sesión…</span>
+                        : 'Iniciar sesión'}
+                    </button>
+
+                    <div className="lf-divider">o continúa con</div>
+
+                    {googleError && <ErrorMsg>{googleError}</ErrorMsg>}
+
+                    <button id="login-google" type="button" onClick={handleGoogle}
+                      disabled={loginLoading || googleLoading} className="lf-btn-secondary">
+                      {googleLoading
+                        ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                            <IC.Spinner /> Iniciando sesión con Google…
+                          </span>
+                        : <><IC.Google /> Continuar con Google</>
+                      }
+                    </button>
+
+                  </div>
+
+                  <p style={{ textAlign:'center', fontSize:'0.8125rem', color:'#94a3b8', marginTop:'1.25rem', fontFamily:'Inter,sans-serif' }}>
+                    ¿No tienes cuenta?{' '}
+                    <button type="button" onClick={() => switchTab('register')}
+                      style={{ color:'#2563eb', fontWeight:600, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'Inter,sans-serif' }}>
+                      Regístrate gratis
+                    </button>
+                  </p>
+                </form>
+              )}
+
+              {/* ─── REGISTRO ─── */}
+              {tab === 'register' && (
+                <form id="register-form" className="sp-pane" onSubmit={handleRegistro} noValidate>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+
+                    {regError   && <ErrorMsg>{regError}</ErrorMsg>}
+                    {regSuccess && <SuccessMsg>{regSuccess}</SuccessMsg>}
+
+                    <div style={{ display:'flex', justifyContent:'center' }}>
+                      <span className="lf-badge">
+                        <IC.Shield /> Registro como Estudiante
+                      </span>
+                    </div>
+
+                    {/* Nombre */}
+                    <div>
+                      <label htmlFor="reg-nombre" className="lf-label">Nombre completo</label>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.User /></span>
+                        <input id="reg-nombre" type="text" autoComplete="name" required
+                          disabled={regLoading} value={regNombre}
+                          onChange={e => setRegNombre(e.target.value)}
+                          placeholder="Tu nombre completo"
+                          className="lf-input" />
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label htmlFor="reg-email" className="lf-label">Correo electrónico</label>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.Mail /></span>
+                        <input id="reg-email" type="email" autoComplete="email" required
+                          disabled={regLoading} value={regEmail}
+                          onChange={e => setRegEmail(e.target.value)}
+                          placeholder="usuario@sapientia.com"
+                          className="lf-input" />
+                      </div>
+                    </div>
+
+                    {/* Contraseña */}
+                    <div>
+                      <label htmlFor="reg-password" className="lf-label">Contraseña</label>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.Lock /></span>
+                        <input id="reg-password" type={showRegPwd ? 'text' : 'password'} autoComplete="new-password" required
+                          minLength={6} disabled={regLoading} value={regPwd}
+                          onChange={e => setRegPwd(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="lf-input lf-input-pr" />
+                        <button type="button" className="lf-eye" onClick={() => setShowRegPwd(v => !v)} tabIndex={-1}>
+                          {showRegPwd ? <IC.EyeOff /> : <IC.EyeOn />}
+                        </button>
+                      </div>
+                      <PasswordStrength password={regPwd} />
+                    </div>
+
+                    {/* Confirmar contraseña */}
+                    <div>
+                      <label htmlFor="reg-confirm" className="lf-label">Confirmar contraseña</label>
+                      <div className="lf-wrap">
+                        <span className="lf-icon"><IC.Lock /></span>
+                        <input id="reg-confirm" type={showRegPwd ? 'text' : 'password'} autoComplete="new-password" required
+                          disabled={regLoading} value={regPwdConf}
+                          onChange={e => setRegPwdConf(e.target.value)}
+                          placeholder="Repite tu contraseña"
+                          className="lf-input lf-input-pr"
+                          style={regPwdConf && regPwdConf !== regPwd ? { borderColor:'#f87171' } : {}} />
+                        {regPwdConf && (
+                          <span style={{
+                            position:'absolute', right:'0.875rem',
+                            color: regPwdConf === regPwd ? '#22c55e' : '#f87171',
+                            display:'flex', alignItems:'center',
+                          }}>
+                            {regPwdConf === regPwd ? <IC.Check /> : <IC.Alert />}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button id="register-submit" type="submit" disabled={regLoading}
+                      className="lf-btn-primary" style={{ marginTop:'0.25rem' }}>
+                      {regLoading
+                        ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}><IC.Spinner /> Creando cuenta…</span>
+                        : 'Crear cuenta'}
+                    </button>
+                  </div>
+
+                  <p style={{ textAlign:'center', fontSize:'0.8125rem', color:'#94a3b8', marginTop:'1.25rem', fontFamily:'Inter,sans-serif' }}>
+                    ¿Ya tienes cuenta?{' '}
+                    <button type="button" onClick={() => switchTab('login')}
+                      style={{ color:'#2563eb', fontWeight:600, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'Inter,sans-serif' }}>
+                      Iniciar sesión
+                    </button>
+                  </p>
+                </form>
+              )}
+
+              {/* ─── FORGOT PASSWORD ─── */}
+              {tab === 'forgot' && (
+                <div className="sp-pane">
+                  <ForgotPassword onBack={() => switchTab('login')} />
+                </div>
+              )}
+
+            </div>{/* /body */}
+          </div>{/* /card */}
+
+          <p id="sp-copy">
+            © 2026 Sapientia · Plataforma de aprendizaje en línea
+          </p>
+
+        </div>{/* /sp-auth */}
+      </div>{/* /sp-root */}
     </>
   );
 };

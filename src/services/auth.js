@@ -165,3 +165,69 @@ export const getPerfilUsuario = async (userId) => {
     return { perfil: null, error };
   }
 };
+
+// ─── Google OAuth ─────────────────────────────────────────────────────────────
+
+/**
+ * Inicia el flujo OAuth con Google.
+ * Redirige al usuario a la pantalla de Google — Supabase maneja el callback.
+ * Después del callback, onAuthStateChange en AuthContext recibirá SIGNED_IN.
+ *
+ * @param {string} [redirectTo] - URL de retorno después del login. Default: origin actual.
+ */
+export const signInWithGoogle = async (redirectTo) => {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo || window.location.origin,
+        queryParams: {
+          // Solicitar access_type=offline para recibir refresh_token
+          access_type: 'offline',
+          // prompt=select_account fuerza selección de cuenta (mejor UX)
+          prompt: 'select_account',
+        },
+      },
+    });
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error iniciando Google OAuth:', error.message);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Crea o actualiza el perfil de un usuario que autenticó vía Google OAuth.
+ * Llama a la función PL/pgSQL `upsert_oauth_profile` que:
+ *  - Asigna siempre el rol "estudiante"
+ *  - Es idempotente (no duplica si ya existe)
+ *  - Usa los metadatos de Google (full_name, avatar_url, email)
+ *
+ * @param {object} authUser - Objeto `user` de Supabase Auth
+ */
+export const upsertPerfilOAuth = async (authUser) => {
+  if (!authUser) return { error: new Error('No hay usuario autenticado') };
+
+  try {
+    // Extraer datos del perfil de Google (vienen en user_metadata)
+    const meta        = authUser.user_metadata || {};
+    const nombre      = meta.full_name || meta.name || '';
+    const avatarUrl   = meta.avatar_url || meta.picture || null;
+    const email       = authUser.email || '';
+
+    const { error } = await supabase.rpc('upsert_oauth_profile', {
+      p_user_id:    authUser.id,
+      p_email:      email,
+      p_nombre:     nombre,
+      p_avatar_url: avatarUrl,
+    });
+
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    console.error('Error creando perfil OAuth:', error.message);
+    return { error };
+  }
+};
+
