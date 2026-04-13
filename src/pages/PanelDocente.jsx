@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardDocente } from '../services/dashboardService';
+import ExternalWidgets from '../components/ExternalWidgets';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const timeAgo = (d) => {
@@ -109,19 +110,24 @@ const PanelDocente = () => {
         </Link>
       </div>
 
-      {/* KPIs */}
-      {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} h="h-28" />)}
+      {/* KPIs + Widget lateral */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4">
+              {[1,2,3,4].map(i => <Skeleton key={i} h="h-28" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <KpiCard icon="📚" label="Mis cursos" value={dash?.kpis.totalCursos} gradient="bg-gradient-to-br from-primary-600 to-indigo-700" />
+              <KpiCard icon="🎓" label="Alumnos totales" value={dash?.kpis.totalEstudiantes} gradient="bg-gradient-to-br from-emerald-600 to-teal-700" />
+              <KpiCard icon="📋" label="Tareas creadas" value={dash?.kpis.totalTareas} gradient="bg-gradient-to-br from-violet-600 to-purple-700" />
+              <KpiCard icon="⏳" label="Por calificar" value={dash?.kpis.totalEntregasPendientes} sub="entregas recibidas" gradient={`bg-gradient-to-br ${dash?.kpis.totalEntregasPendientes > 0 ? 'from-amber-500 to-orange-600' : 'from-slate-600 to-slate-700'}`} />
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon="📚" label="Mis cursos" value={dash?.kpis.totalCursos} gradient="bg-gradient-to-br from-primary-600 to-indigo-700" />
-          <KpiCard icon="🎓" label="Alumnos totales" value={dash?.kpis.totalEstudiantes} gradient="bg-gradient-to-br from-emerald-600 to-teal-700" />
-          <KpiCard icon="📋" label="Tareas creadas" value={dash?.kpis.totalTareas} gradient="bg-gradient-to-br from-violet-600 to-purple-700" />
-          <KpiCard icon="⏳" label="Por calificar" value={dash?.kpis.totalEntregasPendientes} sub="entregas recibidas" gradient={`bg-gradient-to-br ${dash?.kpis.totalEntregasPendientes > 0 ? 'from-amber-500 to-orange-600' : 'from-slate-600 to-slate-700'}`} />
-        </div>
-      )}
+        <ExternalWidgets className="min-h-[200px]" />
+      </div>
 
       {/* Grid principal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

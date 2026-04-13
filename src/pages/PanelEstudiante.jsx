@@ -6,6 +6,7 @@ import { getCursosInscritos, inscribirCurso } from '../services/inscripcionesSer
 import { getCursos } from '../services/cursosService';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
+import ExternalWidgets from '../components/ExternalWidgets';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const getNotaColor = (nota) =>
@@ -308,30 +309,35 @@ const PanelEstudiante = () => {
 
         {feedback.text && <Alert type={feedback.type}>{feedback.text}</Alert>}
 
-        {/* ── KPIs ───────────────────────────────────────────────────────── */}
-        {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+        {/* ── KPIs + Widget externo ───────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            {loading ? (
+              <div className="grid grid-cols-2 gap-4">
+                {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <KpiCard icon="📚" label="Cursos activos" value={kpis.totalCursos || 0} color="primary" />
+                <KpiCard
+                  icon="🎓"
+                  label="Promedio general"
+                  value={promedioDisplay}
+                  sub={kpis.promedioGeneral != null ? getNotaLabel(kpis.promedioGeneral) : 'Sin calificar'}
+                  color={kpis.promedioGeneral >= 70 ? 'emerald' : kpis.promedioGeneral >= 50 ? 'amber' : 'red'}
+                />
+                <KpiCard icon="✅" label="Tareas entregadas" value={kpis.totalEntregas || 0} color="emerald" />
+                <KpiCard
+                  icon="⏳"
+                  label="Pendientes"
+                  value={kpis.totalPendientes || 0}
+                  color={kpis.totalPendientes > 0 ? 'amber' : 'emerald'}
+                />
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCard icon="📚" label="Cursos activos" value={kpis.totalCursos || 0} color="primary" />
-            <KpiCard
-              icon="🎓"
-              label="Promedio general"
-              value={promedioDisplay}
-              sub={kpis.promedioGeneral != null ? getNotaLabel(kpis.promedioGeneral) : 'Sin calificar'}
-              color={kpis.promedioGeneral >= 70 ? 'emerald' : kpis.promedioGeneral >= 50 ? 'amber' : 'red'}
-            />
-            <KpiCard icon="✅" label="Tareas entregadas" value={kpis.totalEntregas || 0} color="emerald" />
-            <KpiCard
-              icon="⏳"
-              label="Pendientes"
-              value={kpis.totalPendientes || 0}
-              color={kpis.totalPendientes > 0 ? 'amber' : 'emerald'}
-            />
-          </div>
-        )}
+          <ExternalWidgets className="min-h-[200px]" />
+        </div>
 
         {/* ── Progreso global ─────────────────────────────────────────────── */}
         {!loading && cursos.length > 0 && (

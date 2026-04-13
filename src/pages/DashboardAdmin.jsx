@@ -6,6 +6,7 @@ import { getUsuariosGrl, crearUsuarioAdmin, eliminarUsuarioAdmin } from '../serv
 import { getCursos } from '../services/cursosService';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import ExternalWidgets from '../components/ExternalWidgets';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const timeAgo = (d) => {
@@ -163,19 +164,24 @@ const DashboardAdmin = () => {
         </div>
       </div>
 
-      {/* KPIs */}
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} h="h-28" />)}
+      {/* KPIs + Widget externo */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4">
+              {[1,2,3,4].map(i => <Skeleton key={i} h="h-28" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <KpiCard icon="👥" label="Usuarios totales" value={dash?.kpis.totalUsuarios} sub={`${dash?.kpis.docentes} doc · ${dash?.kpis.estudiantes} est`} accent="blue" />
+              <KpiCard icon="📚" label="Cursos activos" value={dash?.kpis.cursosActivos} sub={`${dash?.kpis.totalCursos} totales`} accent="purple" />
+              <KpiCard icon="🎓" label="Matrículas" value={dash?.kpis.totalInscripciones} sub="inscripciones activas" accent="green" />
+              <KpiCard icon="📝" label="Entregas (7d)" value={dash?.kpis.entregasRecientes} sub="últimos 7 días" accent="amber" />
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard icon="👥" label="Usuarios totales" value={dash?.kpis.totalUsuarios} sub={`${dash?.kpis.docentes} doc · ${dash?.kpis.estudiantes} est`} accent="blue" />
-          <KpiCard icon="📚" label="Cursos activos" value={dash?.kpis.cursosActivos} sub={`${dash?.kpis.totalCursos} totales`} accent="purple" />
-          <KpiCard icon="🎓" label="Matrículas" value={dash?.kpis.totalInscripciones} sub="inscripciones activas" accent="green" />
-          <KpiCard icon="📝" label="Entregas (7d)" value={dash?.kpis.entregasRecientes} sub="últimos 7 días" accent="amber" />
-        </div>
-      )}
+        <ExternalWidgets className="h-full min-h-[200px]" />
+      </div>
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200 dark:border-dark-border gap-1">
