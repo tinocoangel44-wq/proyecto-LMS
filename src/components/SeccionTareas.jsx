@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getTareasPorCurso, createTarea, enviarEntrega, getMisEntregas } from '../services/tareasService';
-import { Card, CardBody, CardHeader } from './ui/Card';
+import { Card, CardBody } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Alert from './ui/Alert';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCuestionariosPorCurso, generarCuestionarioCompleto, calcularPuntajeExamen } from '../services/cuestionariosService';
-import { Card, CardBody, CardHeader } from './ui/Card';
+import { Card, CardBody } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Alert from './ui/Alert';
