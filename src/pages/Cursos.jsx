@@ -1,235 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { getCursos, createCurso, updateCurso, deleteCurso, getCategorias } from '../services/cursosService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getCursos, createCurso, updateCurso, deleteCurso } from '../services/cursosService';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
+import Alert from '../components/ui/Alert';
+import CourseList from '../components/CourseList';
+import CreateCourse from '../components/CreateCourse';
 
 const Cursos = () => {
-  const { user } = useAuth();
+  const { user, perfil, role } = useAuth();
   const [cursos, setCursos] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [formData, setFormData] = useState({ id: null, titulo: '', descripcion: '', categoria_id: '', imagen_url: '', fecha_inicio: '', fecha_fin: '' });
-  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCurso, setEditingCurso] = useState(null);
+  const [feedback, setFeedback] = useState({ type: '', text: '' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterEstado, setFilterEstado] = useState('todos');
+
+  const canManage = role === 'administrador' || role === 'docente';
+
+  const loadCursos = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await getCursos();
+    if (!error && data) setCursos(data);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     loadCursos();
-    loadCategorias();
-  }, []);
+  }, [loadCursos]);
 
-  const loadCursos = async () => {
-    const { data } = await getCursos();
-    if (data) setCursos(data);
+  const showFeedback = (type, text) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback({ type: '', text: '' }), 4000);
   };
 
-  const loadCategorias = async () => {
-    const { data } = await getCategorias();
-    if (data) setCategorias(data);
-  };
-
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      titulo: formData.titulo,
-      descripcion: formData.descripcion,
-      categoria_id: formData.categoria_id || null,
-      imagen_url: formData.imagen_url,
-      fecha_inicio: formData.fecha_inicio || null,
-      fecha_fin: formData.fecha_fin || null,
-      estado: 'publicado',
-      creado_por: user?.id,
-    };
-
-    if (isEditing) {
-      await updateCurso(formData.id, payload);
-    } else {
-      await createCurso(payload);
+  const handleFormSubmit = async (formData) => {
+    setSaving(true);
+    try {
+      if (editingCurso) {
+        // Modo edición
+        const { error } = await updateCurso(editingCurso.id, formData);
+        if (error) throw error;
+        showFeedback('success', '✅ Curso actualizado correctamente.');
+      } else {
+        // Modo creación: pasar perfil.id para asignar docente en curso_docentes
+        const { error } = await createCurso(
+          { ...formData, creado_por: user?.id },
+          perfil?.id // docente_id para la tabla curso_docentes
+        );
+        if (error) throw error;
+        showFeedback('success', '🎉 Curso creado y publicado correctamente.');
+      }
+      setShowForm(false);
+      setEditingCurso(null);
+      await loadCursos();
+    } catch (err) {
+      showFeedback('error', '❌ Error: ' + (err.message || 'No se pudo guardar el curso.'));
+    } finally {
+      setSaving(false);
     }
-    
-    // Refresco de listado
-    loadCursos();
-    setFormData({ id: null, titulo: '', descripcion: '', categoria_id: '', imagen_url: '', fecha_inicio: '', fecha_fin: '' });
-    setIsEditing(false);
   };
 
   const handleEdit = (curso) => {
-    setFormData({
-      id: curso.id,
-      titulo: curso.titulo,
-      descripcion: curso.descripcion,
-      categoria_id: curso.categoria_id,
-      imagen_url: curso.imagen_url || '',
-      fecha_inicio: curso.fecha_inicio || '',
-      fecha_fin: curso.fecha_fin || ''
-    });
-    setIsEditing(true);
+    setEditingCurso(curso);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {
-    // Baja lógica en la base de datos (estado = 'eliminado')
-    if (window.confirm('¿Estás seguro de querer eliminar este curso?')) {
-      await deleteCurso(id);
-      loadCursos();
+    if (!window.confirm('¿Confirmas que deseas eliminar este curso? Esta acción no se puede deshacer.')) return;
+    const { error } = await deleteCurso(id);
+    if (error) {
+      showFeedback('error', '❌ No se pudo eliminar el curso.');
+    } else {
+      showFeedback('success', '🗑️ Curso eliminado correctamente.');
+      await loadCursos();
     }
   };
 
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setEditingCurso(null);
+  };
+
+  // Filtrado local de cursos
+  const cursosFiltrados = cursos.filter(c => {
+    const matchQuery = !searchQuery ||
+      c.titulo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.descripcion?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.categorias_cursos?.nombre?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchEstado = filterEstado === 'todos' || c.estado === filterEstado;
+    return matchQuery && matchEstado;
+  });
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Gestión de Cursos</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-2">Módulo Administrativo y Docente</p>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Encabezado */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
+            {canManage ? 'Gestión de Cursos' : 'Catálogo de Cursos'}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">
+            {canManage
+              ? `${cursos.length} curso${cursos.length !== 1 ? 's' : ''} en el sistema`
+              : 'Explora todos los cursos disponibles'}
+          </p>
+        </div>
+        {canManage && !showForm && (
+          <Button
+            variant="primary"
+            onClick={() => { setEditingCurso(null); setShowForm(true); }}
+          >
+            + Nuevo Curso
+          </Button>
+        )}
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Editor Formulario */}
-        <Card className="lg:col-span-1 lg:sticky lg:top-24">
+
+      {/* Feedback global */}
+      {feedback.text && (
+        <Alert type={feedback.type}>{feedback.text}</Alert>
+      )}
+
+      {/* Formulario de creación/edición */}
+      {showForm && canManage && (
+        <Card>
           <CardHeader>
-             <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-               {isEditing ? '✏️ Editar Curso' : '✨ Crear Curso'}
-             </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+                {editingCurso ? '✏️ Editar Curso' : '✨ Nuevo Curso'}
+              </h2>
+              <button
+                onClick={handleCancelForm}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dark-bg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </CardHeader>
-          <CardBody>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <Input 
-                label="TÍTULO"
-                name="titulo" 
-                value={formData.titulo} 
-                onChange={handleInputChange} 
-                placeholder="Título de la materia" 
-                required 
-              />
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">DESCRIPCIÓN</label>
-                <textarea 
-                  name="descripcion" 
-                  value={formData.descripcion} 
-                  onChange={handleInputChange} 
-                  placeholder="Descripción breve (ej. Objetivos, temario principal...)" 
-                  rows="3"
-                  className="px-4 py-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-colors"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">CATEGORÍA</label>
-                <select 
-                  name="categoria_id" 
-                  value={formData.categoria_id || ''} 
-                  onChange={handleInputChange} 
-                  required
-                  className="px-4 py-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-colors"
-                >
-                  <option value="">-- Selecciona una categoría --</option>
-                  {categorias.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <Input 
-                label="URL IMAGEN DE PORTADA"
-                name="imagen_url" 
-                value={formData.imagen_url} 
-                onChange={handleInputChange} 
-                placeholder="https://..." 
-              />
-              
-              <div className="flex gap-4">
-                <Input 
-                  label="INICIO"
-                  type="date" 
-                  name="fecha_inicio" 
-                  value={formData.fecha_inicio} 
-                  onChange={handleInputChange} 
-                  className="w-full"
-                />
-                <Input 
-                  label="FIN"
-                  type="date" 
-                  name="fecha_fin" 
-                  value={formData.fecha_fin} 
-                  onChange={handleInputChange} 
-                  className="w-full"
-                />
-              </div>
-              
-              <div className="flex flex-col gap-3 mt-4">
-                <Button type="submit" variant={isEditing ? 'warning' : 'primary'}>
-                  {isEditing ? 'Guardar Cambios' : 'Registrar Nuevo Curso'}
-                </Button>
-                {isEditing && (
-                  <Button type="button" variant="outline" onClick={() => { setIsEditing(false); setFormData({ id: null, titulo: '', descripcion: '', categoria_id: '', imagen_url: '', fecha_inicio: '', fecha_fin: '' }); }}>
-                     Cancelar Edición
-                  </Button>
-                )}
-              </div>
-            </form>
+          <CardBody className="max-w-2xl">
+            <CreateCourse
+              onSubmit={handleFormSubmit}
+              initialData={editingCurso}
+              isLoading={saving}
+            />
           </CardBody>
         </Card>
+      )}
 
-        {/* Tabla Lista de Cursos */}
-        <Card className="lg:col-span-2 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-dark-bg border-b border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-300 text-sm font-semibold">
-                  <th className="px-6 py-4">Materia Académica</th>
-                  <th className="px-6 py-4">Categoría</th>
-                  <th className="px-6 py-4">Calendario</th>
-                  <th className="px-6 py-4 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-dark-border">
-                {cursos.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400 italic">
-                      No hay cursos registrados gestionados por tí.
-                    </td>
-                  </tr>
-                ) : (
-                  cursos.map(curso => (
-                    <tr key={curso.id} className="hover:bg-slate-50/50 dark:hover:bg-dark-bg/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {curso.imagen_url && (
-                            <img src={curso.imagen_url} alt="" className="w-10 h-10 rounded object-cover shadow-sm hidden sm:block" />
-                          )}
-                          <div>
-                            <strong className="text-slate-800 dark:text-white block mb-1">{curso.titulo}</strong>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{curso.descripcion}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                        {curso.categorias_cursos?.nombre || 'Sin Categoría'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                        {curso.fecha_inicio ? `${curso.fecha_inicio} a ${curso.fecha_fin}` : 'Sin definir'}
-                      </td>
-                      <td className="px-6 py-4">
-                         <div className="flex justify-center gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => handleEdit(curso)}>
-                              Editar
-                            </Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDelete(curso.id)}>
-                              Eliminar
-                            </Button>
-                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {/* Barra de filtros y búsqueda */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por título, descripción o categoría..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
+          />
+        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            {['todos', 'publicado', 'borrador', 'archivado'].map(estado => (
+              <button
+                key={estado}
+                onClick={() => setFilterEstado(estado)}
+                className={`px-3 py-2 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                  filterEstado === estado
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-600 dark:text-slate-400 hover:border-primary-300'
+                }`}
+              >
+                {estado}
+              </button>
+            ))}
           </div>
-        </Card>
+        )}
       </div>
 
+      {/* Catálogo de cursos */}
+      <CourseList
+        cursos={cursosFiltrados}
+        loading={loading}
+        showActions={canManage}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        emptyMessage={
+          searchQuery
+            ? `No se encontraron cursos que coincidan con "${searchQuery}".`
+            : 'No hay cursos disponibles en este momento.'
+        }
+      />
     </div>
   );
 };

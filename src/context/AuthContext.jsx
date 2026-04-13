@@ -11,11 +11,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sesión inicial al cargar la página
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      await handleUserSession(session?.user);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Supabase Session Error:", error.message);
+        }
+        await handleUserSession(data?.session?.user || null);
+      } catch (err) {
+        console.error("Critical session check failure:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     checkSession();
 

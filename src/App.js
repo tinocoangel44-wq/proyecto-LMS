@@ -70,9 +70,16 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/* Módulo Gestor de Cursos (Solo Admin y Docentes) */}
+            {/* Catálogo de cursos (todos los roles autenticados) */}
+            <Route path="/catalogo" element={
+              <ProtectedRoute>
+                <Cursos />
+              </ProtectedRoute>
+            } />
+
+            {/* Módulo Gestor de Cursos (Admin y Docentes tienen acciones de edición) */}
             <Route path="/cursos" element={
-              <ProtectedRoute allowedRoles={['administrador', 'docente']}>
+              <ProtectedRoute>
                 <Cursos />
               </ProtectedRoute>
             } />

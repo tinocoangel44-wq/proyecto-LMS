@@ -7,7 +7,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   
   const navItems = [
     { name: 'Dashboard', path: '/', roles: ['administrador', 'docente', 'estudiante'], icon: '📊' },
-    { name: 'Cursos', path: '/cursos', roles: ['administrador', 'docente', 'estudiante'], icon: '📚' },
+    { name: 'Catálogo de Cursos', path: '/catalogo', roles: ['estudiante'], icon: '📚' },
+    { name: 'Cursos', path: '/cursos', roles: ['administrador', 'docente'], icon: '📝' },
     { name: 'Mi Perfil', path: '/perfil', roles: ['administrador', 'docente', 'estudiante'], icon: '👤' },
     // Admin specific
     { name: 'Usuarios', path: '/admin/usuarios', roles: ['administrador'], icon: '👥' },
