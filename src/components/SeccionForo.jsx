@@ -1,275 +1,474 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getForosPorCurso, createForo, getMensajesPorForo, publicarMensaje } from '../services/forosService';
-import { Card, CardBody } from './ui/Card';
+import {
+  getForosPorCurso, createForo, deleteForo,
+  getMensajesPorForo, publicarMensaje, deleteMensaje, buildMessageTree,
+} from '../services/forosService';
 import Button from './ui/Button';
-import Input from './ui/Input';
 
-const SeccionForo = ({ cursoId }) => {
-  const { role, perfil } = useAuth();
-  const esDocente = role === 'administrador' || role === 'docente';
+// ── Helpers ────────────────────────────────────────────────────────────────
+const timeAgo = (dateStr) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'Justo ahora';
+  if (mins < 60) return `Hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `Hace ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)  return `Hace ${days}d`;
+  return new Date(dateStr).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+};
 
-  const [foros, setForos] = useState([]);
-  const [foroActivo, setForoActivo] = useState(null); // NULL = Nivel Raíz (Listar Foros). ID = Dentro de un Foro.
-  
-  // Estado para un Foro específico
-  const [mensajesThread, setMensajesThread] = useState([]);
-  const [cajaRespuestaBase, setCajaRespuestaBase] = useState(''); // Respuesta al tema en general (No a un hijo)
-  const [replyToId, setReplyToId] = useState(null); // Controla qué mensaje específico estamos respondiéndole
-  const [cajaRespuestaHijo, setCajaRespuestaHijo] = useState('');
+const getInitial = (nombre) => (nombre || '?').charAt(0).toUpperCase();
 
-  // Estado creador de Foro (Sólo Docente)
-  const [showFormForo, setShowFormForo] = useState(false);
-  const [newForo, setNewForo] = useState({ titulo: '', descripcion: '' });
+const AVATAR_COLORS = [
+  'bg-primary-500', 'bg-indigo-500', 'bg-emerald-500',
+  'bg-rose-500',   'bg-amber-500',  'bg-violet-500',
+];
+const getAvatarColor = (str = '') => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
+// ── Avatar ─────────────────────────────────────────────────────────────────
+const Avatar = ({ nombre, size = 'md' }) => {
+  const sz = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm';
+  return (
+    <div className={`${sz} ${getAvatarColor(nombre)} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0`}>
+      {getInitial(nombre)}
+    </div>
+  );
+};
+
+// ── Caja de texto para nuevo mensaje ──────────────────────────────────────
+const ComposBox = ({ placeholder, onSubmit, onCancel, loading, autoFocus = false, compact = false }) => {
+  const [text, setText] = useState('');
+  const ref = useRef(null);
 
   useEffect(() => {
-    cargarForos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursoId]);
+    if (autoFocus && ref.current) ref.current.focus();
+  }, [autoFocus]);
 
-  const cargarForos = async () => {
-    const { data } = await getForosPorCurso(cursoId);
-    if (data) setForos(data);
-  };
-
-  const cargarMensajesDelForo = async (fId) => {
-    const { data } = await getMensajesPorForo(fId);
-    if (data) {
-      // Re-estructurar flat-array de Postgres a Árbol (Jerarquía de Hilos) en JavaScript Memoria
-      const messageMap = new Map();
-      const hilosRaiz = [];
-
-      data.forEach(msg => {
-         messageMap.set(msg.id, { ...msg, hijos: [] });
-      });
-
-      data.forEach(msg => {
-         if (msg.parent_id && messageMap.has(msg.parent_id)) {
-             messageMap.get(msg.parent_id).hijos.push(messageMap.get(msg.id));
-         } else {
-             hilosRaiz.push(messageMap.get(msg.id));
-         }
-      });
-
-      setMensajesThread(hilosRaiz);
-    }
-  };
-
-  const handleEntrarForo = (foro) => {
-    setForoActivo(foro);
-    cargarMensajesDelForo(foro.id);
-  };
-
-  const handleSalirForo = () => {
-    setForoActivo(null);
-    setMensajesThread([]);
-  };
-
-  const handleSubmitNuevoForo = async (e) => {
+  const submit = (e) => {
     e.preventDefault();
-    await createForo({ cursoId, titulo: newForo.titulo, descripcion: newForo.descripcion });
-    setNewForo({ titulo: '', descripcion: '' });
-    setShowFormForo(false);
-    cargarForos();
+    if (!text.trim()) return;
+    onSubmit(text);
+    setText('');
   };
-
-  const handlePublicarMensaje = async (e, isChildReply) => {
-    e.preventDefault();
-    const contenidoMsg = isChildReply ? cajaRespuestaHijo : cajaRespuestaBase;
-    const parentIdRef = isChildReply ? replyToId : null;
-
-    if (!contenidoMsg.trim()) return;
-
-    await publicarMensaje({
-      foroId: foroActivo.id,
-      autorId: perfil.id,
-      parentId: parentIdRef,
-      contenido: contenidoMsg
-    });
-
-    if (isChildReply) {
-       setCajaRespuestaHijo('');
-       setReplyToId(null);
-    } else {
-       setCajaRespuestaBase('');
-    }
-    
-    // Refrescar hilo
-    cargarMensajesDelForo(foroActivo.id);
-  };
-
-  // =============== MOTOR RECURSIVO DE RENDERIZADO DE HILOS ===============
-  const RenderHilo = ({ moduloMensaje, nivelIndentacion }) => {
-    // Topamos visualmente la anidación en la UI a un máximo (ej. paddingLeft)
-    const pxLevel = Math.min(nivelIndentacion * 24, 64);
-    const isRoot = nivelIndentacion === 0;
-
-    return (
-      <div 
-        className={`mt-4 ${!isRoot ? 'border-l-2 border-slate-200 dark:border-slate-700' : ''}`}
-        style={{ marginLeft: isRoot ? 0 : `${pxLevel}px`, paddingLeft: isRoot ? 0 : '16px' }}
-      >
-         {/* BLOQUE DEL MENSAJE */}
-         <div className={`p-4 rounded-xl border transition-colors ${
-            isRoot 
-              ? 'bg-white dark:bg-dark-card border-slate-200 dark:border-dark-border shadow-sm' 
-              : 'bg-slate-50 dark:bg-slate-800/50 border-transparent dark:border-transparent'
-         }`}>
-            <div className="flex justify-between items-center mb-2">
-               <div className="flex items-center gap-2">
-                 <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300 flex justify-center items-center text-xs font-bold shrink-0">
-                    {moduloMensaje.perfiles_usuarios?.nombre_completo ? moduloMensaje.perfiles_usuarios.nombre_completo.charAt(0).toUpperCase() : '?'}
-                 </div>
-                 <strong className="text-sm text-primary-700 dark:text-primary-400">
-                   {moduloMensaje.perfiles_usuarios?.nombre_completo || 'Usuario'}
-                 </strong>
-               </div>
-               <span className="text-xs text-slate-400 font-medium">{new Date(moduloMensaje.created_at).toLocaleString()}</span>
-            </div>
-            
-            <p className="text-sm p-1 text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{moduloMensaje.contenido}</p>
-            
-            <div className="mt-2 text-right">
-              <button 
-                onClick={() => setReplyToId(replyToId === moduloMensaje.id ? null : moduloMensaje.id)} 
-                className="text-xs text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors border-none bg-transparent cursor-pointer inline-flex items-center gap-1"
-              >
-                <span>↳</span> {replyToId === moduloMensaje.id ? 'Cancelar cita' : 'Citar o Responder este hilo'}
-              </button>
-            </div>
-         </div>
-
-         {/* CAJA DE RESPUESTA ESPECIFICA (Solo visible si el usuario decide responderA !== null) */}
-         {replyToId === moduloMensaje.id && (
-            <div className="mt-3 p-4 bg-slate-50 dark:bg-dark-bg border border-dashed border-slate-300 dark:border-slate-600 rounded-lg animate-in fade-in duration-300">
-               <form onSubmit={(e) => handlePublicarMensaje(e, true)} className="flex flex-col gap-3">
-                  <textarea 
-                     required
-                     placeholder={`Redactar respuesta pública a ${moduloMensaje.perfiles_usuarios?.nombre_completo || ''}...`}
-                     value={cajaRespuestaHijo}
-                     onChange={e => setCajaRespuestaHijo(e.target.value)}
-                     className="w-full h-20 px-3 py-2 text-sm bg-white dark:bg-dark-card border border-slate-300 dark:border-dark-border rounded focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-colors"
-                  />
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setReplyToId(null); setCajaRespuestaHijo('') }}>Anular</Button>
-                    <Button type="submit" variant="primary" size="sm">Publicar Respuesta Menor</Button>
-                  </div>
-               </form>
-            </div>
-         )}
-
-         {/* RENDERIZAR RECURSIVAMENTE LOS HIJOS (SUB-HILOS) */}
-         {moduloMensaje.hijos && moduloMensaje.hijos.map(hijito => (
-            <RenderHilo key={hijito.id} moduloMensaje={hijito} nivelIndentacion={nivelIndentacion + 1} />
-         ))}
-      </div>
-    );
-  };
-
 
   return (
-    <div className="mt-16 pt-8 border-t border-slate-200 dark:border-dark-border">
-      
-      {/* VISTA 1: MENÚ GENERAL DE FOROS */}
-      {!foroActivo && (
-        <div className="animate-in fade-in fade-out">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-               <div>
-                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Debate y Colaboración Asíncrona</h2>
-                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Seleccione una sala de dudas o de interacción general.</p>
-               </div>
-               {esDocente && (
-                 <Button onClick={() => setShowFormForo(!showFormForo)} variant="secondary">
-                   {showFormForo ? 'Ocultar Creador' : '+ Cimentar Nuevo Foro'}
-                 </Button>
-               )}
-            </div>
-
-            {showFormForo && (
-               <Card className="mb-6 border-slate-300 dark:border-dark-border bg-slate-50 dark:bg-dark-bg animate-in slide-in-from-top-4">
-                  <CardBody>
-                     <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 text-sm flex items-center gap-2">🌟 Definir Nueva Sala de Debate</h3>
-                     <form onSubmit={handleSubmitNuevoForo} className="flex flex-col gap-3">
-                        <Input required placeholder="Tema Central u Objeto de Debate" className="w-full" value={newForo.titulo} onChange={e=>setNewForo({...newForo, titulo:e.target.value})} />
-                        <textarea placeholder="Descripción detallada de lo que se espera discutir..." className="w-full px-4 py-2 bg-white dark:bg-dark-card border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-colors min-h-[80px]" value={newForo.descripcion} onChange={e=>setNewForo({...newForo, descripcion:e.target.value})} />
-                        <div className="flex justify-end mt-2">
-                           <Button type="submit" variant="primary">Materializar Foro</Button>
-                        </div>
-                     </form>
-                  </CardBody>
-               </Card>
-            )}
-
-            <div className="flex flex-col gap-4">
-               {foros.length === 0 ? (
-                  <div className="text-center py-10 bg-white dark:bg-dark-card border border-dashed border-slate-300 dark:border-dark-border rounded-xl">
-                    <p className="italic text-slate-400">No se han fundado espacios de debate para la materia.</p>
-                  </div>
-               ) : null}
-               
-               {foros.map(f => (
-                  <div key={f.id} className="border-l-4 border-l-primary-500 bg-white dark:bg-dark-card border-y border-r border-slate-200 dark:border-dark-border p-5 rounded-r-xl shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-                     <div>
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1 group-hover:text-primary-600 transition-colors">{f.titulo}</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{f.descripcion}</p>
-                     </div>
-                     <Button variant="outline" className="shrink-0 group-hover:bg-primary-50 dark:group-hover:bg-primary-900/10 group-hover:border-primary-200 dark:group-hover:border-primary-800" onClick={() => handleEntrarForo(f)}>
-                        Ingresar al Debate →
-                     </Button>
-                  </div>
-               ))}
-            </div>
+    <form onSubmit={submit} className="flex flex-col gap-2">
+      <textarea
+        ref={ref}
+        rows={compact ? 2 : 3}
+        placeholder={placeholder}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) submit(e); }}
+        className="w-full px-4 py-3 text-sm bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white resize-none placeholder-slate-400"
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">Ctrl + Enter para enviar</span>
+        <div className="flex gap-2">
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg transition-colors">
+              Cancelar
+            </button>
+          )}
+          <Button type="submit" variant="primary" size="sm" isLoading={loading} disabled={!text.trim()}>
+            Publicar
+          </Button>
         </div>
+      </div>
+    </form>
+  );
+};
+
+// ── Mensaje individual (recursivo) ─────────────────────────────────────────
+const Mensaje = ({ msg, perfil, canManage, onReply, onDelete, depth = 0 }) => {
+  const [showReply, setShowReply] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const esPropio = msg.perfiles_usuarios?.id === perfil?.id;
+  const autor = msg.perfiles_usuarios?.nombre_completo || 'Usuario';
+
+  const handleReply = async (text) => {
+    setPosting(true);
+    await onReply(msg.id, text);
+    setPosting(false);
+    setShowReply(false);
+  };
+
+  const isRoot = depth === 0;
+
+  return (
+    <div className={`${!isRoot ? 'ml-8 mt-3 border-l-2 border-slate-200 dark:border-slate-700 pl-4' : ''}`}>
+      <div className={`rounded-2xl p-4 transition-colors ${
+        isRoot
+          ? 'bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border shadow-sm'
+          : 'bg-slate-50 dark:bg-dark-bg'
+      }`}>
+        {/* Cabecera del mensaje */}
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2.5">
+            <Avatar nombre={autor} size={isRoot ? 'md' : 'sm'} />
+            <div>
+              <span className="text-sm font-bold text-slate-800 dark:text-white">{autor}</span>
+              {!isRoot && (
+                <span className="ml-1.5 text-xs text-slate-400">{timeAgo(msg.created_at)}</span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400 flex-shrink-0">
+            {isRoot && <span>{timeAgo(msg.created_at)}</span>}
+            {(esPropio || canManage) && (
+              <button
+                onClick={() => onDelete(msg.id)}
+                className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all p-0.5"
+                title="Eliminar"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Contenido */}
+        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed pl-11">
+          {msg.contenido}
+        </p>
+
+        {/* Acciones */}
+        <div className="pl-11 mt-2">
+          <button
+            onClick={() => setShowReply(!showReply)}
+            className="text-xs text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors"
+          >
+            💬 {showReply ? 'Cancelar' : 'Responder'}
+          </button>
+        </div>
+
+        {/* Formulario de respuesta */}
+        {showReply && (
+          <div className="pl-11 mt-3">
+            <ComposBox
+              placeholder={`Responder a ${autor}...`}
+              onSubmit={handleReply}
+              onCancel={() => setShowReply(false)}
+              loading={posting}
+              autoFocus
+              compact
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Respuestas recursivas */}
+      {msg.replies?.map(child => (
+        <div key={child.id} className="group">
+          <Mensaje
+            msg={child}
+            perfil={perfil}
+            canManage={canManage}
+            onReply={onReply}
+            onDelete={onDelete}
+            depth={depth + 1}
+          />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Vista del Foro (hilo de mensajes) ─────────────────────────────────────
+const VistaForo = ({ foro, perfil, canManage, onSalir }) => {
+  const [mensajes, setMensajes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const bottomRef = useRef(null);
+
+  const cargar = useCallback(async () => {
+    const { data } = await getMensajesPorForo(foro.id);
+    if (data) setMensajes(buildMessageTree(data));
+    setLoading(false);
+  }, [foro.id]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  const scrollToBottom = () => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const handlePost = async (text) => {
+    setPosting(true);
+    await publicarMensaje({ foroId: foro.id, autorId: perfil.id, parentId: null, contenido: text });
+    await cargar();
+    setPosting(false);
+    scrollToBottom();
+  };
+
+  const handleReply = async (parentId, text) => {
+    await publicarMensaje({ foroId: foro.id, autorId: perfil.id, parentId, contenido: text });
+    await cargar();
+  };
+
+  const handleDelete = async (mensajeId) => {
+    if (!window.confirm('¿Eliminar este mensaje?')) return;
+    await deleteMensaje(mensajeId);
+    cargar();
+  };
+
+  const totalMensajes = foro.mensajes_foro?.length || 0;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Cabecera del foro */}
+      <div className="flex items-center gap-3 px-5 py-4 bg-white dark:bg-dark-card border-b border-slate-200 dark:border-dark-border">
+        <button
+          onClick={onSalir}
+          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-bg"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-slate-800 dark:text-white text-base truncate">{foro.titulo}</h2>
+          {foro.descripcion && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{foro.descripcion}</p>
+          )}
+        </div>
+        <span className="text-xs text-slate-400 flex-shrink-0">
+          {totalMensajes} mensaje{totalMensajes !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Hilo de mensajes */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-dark-bg/50">
+        {loading ? (
+          <div className="space-y-4 animate-pulse">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white dark:bg-dark-card rounded-2xl p-4 space-y-2">
+                <div className="flex gap-3 items-center">
+                  <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-dark-bg" />
+                  <div className="h-4 bg-slate-200 dark:bg-dark-bg rounded w-32" />
+                </div>
+                <div className="h-3 bg-slate-100 dark:bg-dark-bg rounded w-3/4 ml-12" />
+                <div className="h-3 bg-slate-100 dark:bg-dark-bg rounded w-1/2 ml-12" />
+              </div>
+            ))}
+          </div>
+        ) : mensajes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="text-5xl mb-3 opacity-30">💬</div>
+            <h3 className="font-semibold text-slate-500 dark:text-slate-400">Sin publicaciones todavía</h3>
+            <p className="text-sm text-slate-400 mt-1">¡Sé el primero en iniciar la conversación!</p>
+          </div>
+        ) : (
+          mensajes.map(msg => (
+            <div key={msg.id} className="group">
+              <Mensaje
+                msg={msg}
+                perfil={perfil}
+                canManage={canManage}
+                onReply={handleReply}
+                onDelete={handleDelete}
+                depth={0}
+              />
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Compositor de nuevo mensaje */}
+      <div className="px-4 py-4 bg-white dark:bg-dark-card border-t border-slate-200 dark:border-dark-border">
+        <div className="flex gap-3">
+          <Avatar nombre={perfil?.nombre_completo} />
+          <div className="flex-1">
+            <ComposBox
+              placeholder="Escribe tu publicación..."
+              onSubmit={handlePost}
+              loading={posting}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Lista de foros ─────────────────────────────────────────────────────────
+const SeccionForo = ({ cursoId }) => {
+  const { role, perfil } = useAuth();
+  const canManage = role === 'administrador' || role === 'docente';
+
+  const [foros, setForos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [foroActivo, setForoActivo] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ titulo: '', descripcion: '' });
+  const [saving, setSaving] = useState(false);
+
+  const cargarForos = useCallback(async () => {
+    setLoading(true);
+    const { data } = await getForosPorCurso(cursoId);
+    if (data) setForos(data);
+    setLoading(false);
+  }, [cursoId]);
+
+  useEffect(() => { cargarForos(); }, [cargarForos]);
+
+  const handleCrearForo = async (e) => {
+    e.preventDefault();
+    if (!formData.titulo.trim()) return;
+    setSaving(true);
+    await createForo({ cursoId, creadorId: perfil?.id, ...formData });
+    setSaving(false);
+    setFormData({ titulo: '', descripcion: '' });
+    setShowForm(false);
+    cargarForos();
+  };
+
+  const handleEliminarForo = async (foroId) => {
+    if (!window.confirm('¿Eliminar este foro y todos sus mensajes?')) return;
+    await deleteForo(foroId);
+    cargarForos();
+  };
+
+  // Vista interna del foro
+  if (foroActivo) {
+    return (
+      <div className="bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-2xl overflow-hidden" style={{ minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
+        <VistaForo
+          foro={foroActivo}
+          perfil={perfil}
+          canManage={canManage}
+          onSalir={() => { setForoActivo(null); cargarForos(); }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          <span>💬</span> Foros de debate
+          {foros.length > 0 && (
+            <span className="text-sm font-normal text-slate-500">({foros.length})</span>
+          )}
+        </h2>
+        {canManage && !showForm && (
+          <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
+            + Nuevo foro
+          </Button>
+        )}
+      </div>
+
+      {/* Formulario nuevo foro */}
+      {showForm && canManage && (
+        <form
+          onSubmit={handleCrearForo}
+          className="bg-primary-50 dark:bg-primary-900/10 border border-primary-200 dark:border-primary-900/30 rounded-xl p-4 space-y-3"
+        >
+          <h3 className="text-sm font-bold text-primary-800 dark:text-primary-300">💬 Crear foro de debate</h3>
+          <input
+            required
+            placeholder="Título del foro (ej. Dudas del Tema 1)"
+            value={formData.titulo}
+            onChange={e => setFormData(p => ({ ...p, titulo: e.target.value }))}
+            className="w-full px-4 py-2 text-sm bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
+          />
+          <textarea
+            rows={2}
+            placeholder="Descripción o instrucciones para el debate (opcional)"
+            value={formData.descripcion}
+            onChange={e => setFormData(p => ({ ...p, descripcion: e.target.value }))}
+            className="w-full px-4 py-2 text-sm bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg">
+              Cancelar
+            </button>
+            <Button type="submit" variant="primary" size="sm" isLoading={saving}>
+              Crear foro
+            </Button>
+          </div>
+        </form>
       )}
 
-      {/* VISTA 2: DENTRO DE UN FORO ESPECÍFICO (EL HIlo) */}
-      {foroActivo && (
-        <Card className="overflow-hidden border-slate-200 dark:border-dark-border shadow-md animate-in zoom-in-95 duration-300 h-full flex flex-col">
-           <div className="bg-slate-800 dark:bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-             <div>
-               <h3 className="font-bold text-lg flex items-center gap-2">
-                  <span className="text-primary-400">🗣</span> {foroActivo.titulo}
-               </h3>
-               <p className="text-sm text-slate-400 mt-1">{foroActivo.descripcion}</p>
-             </div>
-             <button onClick={handleSalirForo} className="text-xs text-red-300 hover:text-red-100 uppercase tracking-widest shrink-0 transition-colors underline-offset-4 hover:underline">
-               abandonar sala
-             </button>
-           </div>
+      {/* Lista de foros */}
+      {loading ? (
+        <div className="space-y-3 animate-pulse">
+          {[1, 2].map(i => (
+            <div key={i} className="h-20 bg-slate-100 dark:bg-dark-bg rounded-xl" />
+          ))}
+        </div>
+      ) : foros.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 dark:border-dark-border rounded-2xl text-center">
+          <div className="text-4xl mb-2 opacity-30">💬</div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {canManage ? 'No hay foros. Crea el primero.' : 'No hay foros disponibles en este curso.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {foros.map(foro => {
+            const numMensajes = foro.mensajes_foro?.length || 0;
+            return (
+              <div
+                key={foro.id}
+                className="group bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-xl hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-200 overflow-hidden"
+              >
+                <div className="flex items-center gap-4 px-5 py-4">
+                  {/* Icono */}
+                  <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center text-xl flex-shrink-0">
+                    💬
+                  </div>
 
-           {/* CONTENEDOR DE CONVERSACIÓN */}
-           <div className="p-6 bg-slate-50/50 dark:bg-dark-bg flex-1 min-h-[400px]">
-              {mensajesThread.length === 0 ? (
-                 <div className="text-center text-slate-400 dark:text-slate-500 mt-20 flex flex-col items-center">
-                    <span className="text-4xl mb-4 opacity-50">🏜️</span>
-                    <p>Este foro se encuentra inhóspito.</p>
-                    <p className="font-medium text-slate-500 dark:text-slate-400 mt-1">¡Inyéctale vida y comparte el primer comentario!</p>
-                 </div>
-              ) : (
-                 <div className="space-y-6">
-                    {mensajesThread.map(mensajeRaiz => (
-                       <RenderHilo key={mensajeRaiz.id} moduloMensaje={mensajeRaiz} nivelIndentacion={0} />
-                    ))}
-                 </div>
-              )}
-           </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-800 dark:text-white text-sm group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                      {foro.titulo}
+                    </h3>
+                    {foro.descripcion && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{foro.descripcion}</p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-1">
+                      {numMensajes} publicación{numMensajes !== 1 ? 'es' : ''}
+                    </p>
+                  </div>
 
-           {/* BARRA DE ESCRITURA INFERIOR PARA TEMAS NUEVOS (NO RESPUESTAS A INDIVIDUOS) */}
-           <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card mt-auto">
-             <form onSubmit={(e) => handlePublicarMensaje(e, false)} className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  required
-                  placeholder="Introduce tu idea o postura global en la materia..." 
-                  className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-dark-bg focus:border-primary-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-all shadow-sm" 
-                  value={cajaRespuestaBase}
-                  onChange={e => setCajaRespuestaBase(e.target.value)}
-                />
-                <Button type="submit" variant="primary" className="h-12 px-8 shrink-0 shadow-sm font-bold tracking-wide">
-                   Dialogar
-                </Button>
-             </form>
-           </div>
-        </Card>
+                  {/* Acciones */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {canManage && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEliminarForo(foro.id); }}
+                        className="p-1.5 text-slate-300 hover:text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setForoActivo(foro)}
+                      className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded-xl transition-colors"
+                    >
+                      Entrar →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
