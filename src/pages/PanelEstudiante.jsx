@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCursosInscritos, inscribirCurso } from '../services/inscripcionesService';
 import { getCursos } from '../services/cursosService';
 import DashboardInsights from '../components/DashboardInsights';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Card, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 
@@ -13,14 +13,8 @@ const PanelEstudiante = () => {
   const [catalogo, setCatalogo] = useState([]);
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
 
-  // Disparar las consultas cuando el perfil real ya se haya cargado desde el Contexto
-  useEffect(() => {
-    if (perfil && perfil.id) {
-      cargarTablero();
-    }
-  }, [perfil]);
-
-  const cargarTablero = async () => {
+  const cargarTablero = useCallback(async () => {
+    if (!perfil?.id) return;
     // 1. Obtener el portafolio personal del alumno
     const { data: inscritosConfig } = await getCursosInscritos(perfil.id);
     const identificadoresInscritos = [];
@@ -39,7 +33,13 @@ const PanelEstudiante = () => {
       const disponibles = todosCursos.filter(c => c.estado !== 'eliminado' && !identificadoresInscritos.includes(c.id));
       setCatalogo(disponibles);
     }
-  };
+  }, [perfil?.id]);
+
+  useEffect(() => {
+    if (perfil?.id) {
+      cargarTablero();
+    }
+  }, [perfil?.id, cargarTablero]);
 
   const handleInscribirse = async (cursoId) => {
     setMensaje({ tipo: '', texto: '' });

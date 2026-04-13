@@ -2,8 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import DashboardInsights from '../components/DashboardInsights';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { Card, CardBody } from '../components/ui/Card';
 
 const PanelDocente = () => {
   const { user, perfil } = useAuth();

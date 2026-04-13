@@ -5,7 +5,7 @@ import { getEstructuraCurso, createModulo, deleteModulo, createMaterial, deleteM
 import SeccionTareas from '../components/SeccionTareas';
 import SeccionCuestionarios from '../components/SeccionCuestionarios';
 import SeccionForo from '../components/SeccionForo';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Card, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
