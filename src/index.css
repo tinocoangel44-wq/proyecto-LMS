@@ -1,15 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Base HTML Settings for Dark Mode */
-html, body {
-  @apply antialiased text-slate-800 bg-slate-50 transition-colors duration-300;
+/* ── CSS Custom Properties ─────────────────────────────────────────────────── */
+:root {
+  --sidebar-width: 16rem;
+  --sidebar-collapsed: 4.5rem;
+  --navbar-height: 4rem;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --radius-card: 1rem;
+  --shadow-card: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-hover: 0 12px 32px rgba(0,0,0,.10), 0 3px 8px rgba(0,0,0,.06);
 }
+
+/* ── Base Reset ────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  @apply antialiased text-slate-800 bg-slate-50 transition-colors;
+  transition-duration: 300ms;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
 html.dark, html.dark body {
   @apply text-dark-text bg-dark-bg;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+/* ── Scrollbar Global ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 100px;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ── Sidebar Scrollbar (oculta) ────────────────────────────────────────────── */
+.sidebar-scroll::-webkit-scrollbar { display: none; }
+.sidebar-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Glassmorphism helpers ─────────────────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .gradient-primary {
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  }
+  .gradient-dark {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .card-hover {
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+  .sidebar-item-active {
+    @apply bg-primary-600 text-white shadow-glow;
+  }
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.5) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    background-size: 2000px 100%;
+    animation: shimmer 1.8s infinite linear;
+  }
+  .dark .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.05) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    background-size: 2000px 100%;
+  }
+  @keyframes shimmer {
+    0%   { background-position: -2000px 0; }
+    100% { background-position:  2000px 0; }
+  }
+}
+
+/* ── Card Component ────────────────────────────────────────────────────────── */
+@layer components {
+  .lms-card {
+    @apply bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border rounded-2xl shadow-[var(--shadow-card)] transition-all duration-250;
+  }
+  .lms-card-hover {
+    @apply lms-card hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)];
+  }
+  .lms-btn {
+    @apply inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none;
+  }
+  .lms-btn-primary {
+    @apply lms-btn bg-primary-600 hover:bg-primary-500 active:bg-primary-700 text-white focus-visible:ring-primary-500 shadow-sm hover:shadow-md;
+  }
+  .lms-btn-ghost {
+    @apply lms-btn text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-hover hover:text-slate-800 dark:hover:text-slate-200;
+  }
+  .lms-input {
+    @apply w-full bg-slate-50 dark:bg-dark-surface border border-slate-200 dark:border-dark-border rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-dark-card transition-all duration-150;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative;
+  }
+  .nav-link-inactive {
+    @apply text-sidebar-text hover:text-white hover:bg-sidebar-hover;
+  }
+  .nav-link-active {
+    @apply bg-primary-600 text-white shadow-lg;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+}
+
+/* ── Focus ring global ─────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+/* ── Print ─────────────────────────────────────────────────────────────────── */
+@media print {
+  aside, header { display: none !important; }
+  main { padding: 0 !important; margin: 0 !important; }
+}
+
+/* ── Transiciones de página ────────────────────────────────────────────────── */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease, transform 300ms ease;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getCursos, createCurso, updateCurso, deleteCurso } from '../services/cursosService';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardHeader, CardBody } from '../components/ui/Card';
+import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import CourseList from '../components/CourseList';
@@ -127,7 +127,7 @@ const Cursos = () => {
       {/* Formulario de creación/edición */}
       {showForm && canManage && (
         <Card>
-          <CardHeader>
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-dark-border">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 {editingCurso ? '✏️ Editar Curso' : '✨ Nuevo Curso'}
@@ -141,14 +141,14 @@ const Cursos = () => {
                 </svg>
               </button>
             </div>
-          </CardHeader>
-          <CardBody className="max-w-2xl">
+          </div>
+          <div className="p-5 max-w-2xl">
             <CreateCourse
               onSubmit={handleFormSubmit}
               initialData={editingCurso}
               isLoading={saving}
             />
-          </CardBody>
+          </div>
         </Card>
       )}
 
