@@ -24,6 +24,16 @@ const formatDate = (d) => d
   ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
   : '—';
 
+const timeAgo = (d) => {
+  const diff = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'Ahora';
+  if (mins < 60) return `Hace ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `Hace ${hrs}h`;
+  return `Hace ${Math.floor(hrs / 24)}d`;
+};
+
 // ── Skeleton ───────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="animate-pulse bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-2xl p-5 space-y-3">
@@ -256,7 +266,7 @@ const PanelEstudiante = () => {
   };
 
   // ── Datos procesados ────────────────────────────────────────────────────
-  const { cursos = [], calificaciones = [], kpis = {} } = dashData || {};
+  const { cursos = [], calificaciones = [], kpis = {}, mensajesRecientes = [] } = dashData || {};
   const promedioDisplay = kpis.promedioGeneral !== null && kpis.promedioGeneral !== undefined
     ? kpis.promedioGeneral.toFixed(1)
     : '—';
@@ -399,7 +409,7 @@ const PanelEstudiante = () => {
             )}
           </div>
 
-          {/* Columna derecha: Calificaciones (1/3) */}
+          {/* Columna derecha: Calificaciones + Foro (1/3) */}
           <div className="space-y-4">
             <h2 className="font-bold text-slate-800 dark:text-white text-lg">Mis calificaciones</h2>
 
@@ -472,6 +482,30 @@ const PanelEstudiante = () => {
                   })}
                 </div>
               </>
+            )}
+
+            {/* Mensajes recientes del foro */}
+            {!loading && mensajesRecientes.length > 0 && (
+              <div className="bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-2xl p-4">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">💬 Actividad reciente en foros</h4>
+                <div className="space-y-3">
+                  {mensajesRecientes.map(m => (
+                    <div key={m.id} className="flex gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {(m.perfiles_usuarios?.nombre_completo || '?').charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{m.perfiles_usuarios?.nombre_completo}</span>
+                          <span className="text-[10px] text-slate-400 flex-shrink-0">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">"{m.contenido}"</p>
+                        {m.foro_titulo && <p className="text-[10px] text-primary-500 dark:text-primary-400">en {m.foro_titulo}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
