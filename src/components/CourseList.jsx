@@ -25,6 +25,20 @@ const PLACEHOLDER_GRADIENTS = [
   'from-cyan-500 to-blue-600',
 ];
 
+// Emoji por categoría
+const CATEGORIA_EMOJI = {
+  'programación':           '💻',
+  'bases de datos':         '🗄️',
+  'redes':                  '🌐',
+  'inteligencia artificial':'🤖',
+  'desarrollo web':         '🌍',
+  'ciberseguridad':         '🔒',
+  'matemáticas':            '📐',
+  'electrónica':            '⚡',
+  'ofimática':              '📊',
+};
+const getCatEmoji = (nombre = '') => CATEGORIA_EMOJI[nombre.toLowerCase()] || '📚';
+
 // Card individual de curso
 const CourseCard = ({ curso, showActions = false, onEdit, onDelete, index = 0 }) => {
   const [imgError, setImgError] = React.useState(false);
@@ -78,8 +92,9 @@ const CourseCard = ({ curso, showActions = false, onEdit, onDelete, index = 0 })
         {/* Badge de categoría */}
         {curso.categorias_cursos?.nombre && (
           <div className="absolute bottom-3 left-3">
-            <span className="text-xs bg-black/40 backdrop-blur-sm text-white px-2.5 py-1 rounded-full">
-              {curso.categorias_cursos.nombre}
+            <span className="text-xs bg-black/40 backdrop-blur-sm text-white px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span>{getCatEmoji(curso.categorias_cursos.nombre)}</span>
+              <span>{curso.categorias_cursos.nombre}</span>
             </span>
           </div>
         )}

@@ -22,7 +22,7 @@ export const getCursos = async () => {
       *,
       categorias_cursos (id, nombre),
       curso_docentes (
-        perfiles_usuarios (id, nombre_completo)
+        perfiles_usuarios!curso_docentes_docente_id_fkey (id, nombre_completo)
       )
     `)
     .neq('estado', 'eliminado')
@@ -38,7 +38,7 @@ export const getCursosPublicados = async () => {
       *,
       categorias_cursos (id, nombre),
       curso_docentes (
-        perfiles_usuarios (id, nombre_completo)
+        perfiles_usuarios!curso_docentes_docente_id_fkey (id, nombre_completo)
       )
     `)
     .eq('estado', 'publicado')

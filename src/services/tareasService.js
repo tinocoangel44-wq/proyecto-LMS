@@ -62,8 +62,40 @@ export const deleteTarea = async (id) => {
 
 // ── ENTREGAS ───────────────────────────────────────────────────────────────
 
+// Subir archivo de entrega a Storage
+export const uploadTareaFile = async (file, estudianteId) => {
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    const filePath = `entregas/${estudianteId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('tareas')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('tareas')
+      .getPublicUrl(filePath);
+
+    return { url: data.publicUrl, error: null };
+  } catch (error) {
+    console.error('Error subiendo archivo:', error);
+    return { url: null, error };
+  }
+};
+
 // Enviar entrega de estudiante
 export const enviarEntrega = async (entregaData) => {
+  let archivoUrl = null;
+
+  if (entregaData.archivoFile) {
+    const { url, error: uploadErr } = await uploadTareaFile(entregaData.archivoFile, entregaData.estudiante_id);
+    if (uploadErr) return { data: null, error: new Error('Error subiendo archivo: ' + uploadErr.message) };
+    archivoUrl = url;
+  }
+
   const { data, error } = await supabase
     .from('entregas_tareas')
     .insert([{
@@ -71,6 +103,7 @@ export const enviarEntrega = async (entregaData) => {
       estudiante_id: entregaData.estudiante_id,
       texto_entrega: entregaData.texto_entrega || null,
       enlace_entrega: entregaData.enlace_entrega || null,
+      archivo_url: archivoUrl,
       fecha_entrega: new Date().toISOString(),
       estado: 'entregada',
     }])

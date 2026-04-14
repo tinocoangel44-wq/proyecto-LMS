@@ -12,6 +12,7 @@ import {
 import SeccionTareas from '../components/SeccionTareas';
 import SeccionCuestionarios from '../components/SeccionCuestionarios';
 import SeccionForo from '../components/SeccionForo';
+import SeccionChat from '../components/SeccionChat';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Alert from '../components/ui/Alert';
@@ -461,6 +462,7 @@ const CursoDetalle = () => {
     { id: 'tareas', label: 'Tareas', icon: '📝' },
     { id: 'cuestionarios', label: 'Cuestionarios', icon: '📋' },
     { id: 'foro', label: 'Foro', icon: '💬' },
+    { id: 'chat', label: 'Chat', icon: '🗨️' },
   ];
 
   return (
@@ -614,6 +616,9 @@ const CursoDetalle = () => {
 
       {/* ── TAB: FORO ─────────────────────────────────────── */}
       {activeTab === 'foro' && <SeccionForo cursoId={id} />}
+
+      {/* ── TAB: CHAT ─────────────────────────────────────── */}
+      {activeTab === 'chat' && <SeccionChat cursoId={id} />}
     </div>
   );
 };

@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardEstudiante } from '../services/dashboardService';
-import { getCursosInscritos, inscribirCurso } from '../services/inscripcionesService';
-import { getCursos } from '../services/cursosService';
+import { getCursosInscritos, inscribirCurso, getCatalogoDisponible } from '../services/inscripcionesService';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import ExternalWidgets from '../components/ExternalWidgets';
@@ -237,15 +236,8 @@ const PanelEstudiante = () => {
 
   const cargarCatalogo = useCallback(async () => {
     if (!perfil?.id) return;
-    const [inscRes, todosRes] = await Promise.all([
-      getCursosInscritos(perfil.id),
-      getCursos(),
-    ]);
-    const idsInscritos = (inscRes.data || []).map(i => i.cursos?.id).filter(Boolean);
-    const disponibles = (todosRes.data || []).filter(c =>
-      c.estado !== 'eliminado' && !idsInscritos.includes(c.id)
-    );
-    setCatalogo(disponibles);
+    const { data } = await getCatalogoDisponible(perfil.id);
+    setCatalogo(data || []);
   }, [perfil?.id]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -364,9 +356,12 @@ const PanelEstudiante = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-slate-800 dark:text-white text-lg">Mis cursos</h2>
-              <Link to="/catalogo" className="text-xs text-primary-600 dark:text-primary-400 hover:underline">
+              <button
+                onClick={handleOpenCatalogo}
+                className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+              >
                 Ver catálogo →
-              </Link>
+              </button>
             </div>
 
             {loading ? (

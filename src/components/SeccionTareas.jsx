@@ -116,8 +116,8 @@ const FormularioTarea = ({ onSubmit, onCancel, isLoading }) => {
 
 // ── Formulario de entrega (Estudiante) ────────────────────────────────────
 const FormularioEntrega = ({ onSubmit, onCancel, isLoading }) => {
-  const [data, setData] = useState({ texto_entrega: '', enlace_entrega: '' });
-  const hasContent = data.texto_entrega.trim() || data.enlace_entrega.trim();
+  const [data, setData] = useState({ texto_entrega: '', enlace_entrega: '', archivoFile: null });
+  const hasContent = data.texto_entrega.trim() || data.enlace_entrega.trim() || data.archivoFile;
 
   return (
     <form
@@ -149,8 +149,19 @@ const FormularioEntrega = ({ onSubmit, onCancel, isLoading }) => {
         />
       </div>
 
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Archivo Adjunto (opcional)</label>
+        <input
+          type="file"
+          onChange={e => setData(p => ({ ...p, archivoFile: e.target.files[0] }))}
+          className="w-full px-3 py-2 text-sm text-slate-700 bg-white dark:bg-dark-card border border-slate-300 dark:border-dark-border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip,.rar"
+        />
+        <p className="text-[10px] text-slate-400 mt-1">Máximo 50MB. (PDF, Imágenes, Word, Zip)</p>
+      </div>
+
       {!hasContent && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">Debes escribir texto o adjuntar un enlace para enviar.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">Debes escribir texto, adjuntar un enlace o subir un archivo para enviar.</p>
       )}
 
       <div className="flex gap-2 justify-end">
@@ -433,9 +444,19 @@ const SeccionTareas = ({ cursoId }) => {
                                 href={entregaExistente.enlace_entrega}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                className="mt-2 block text-xs text-primary-600 dark:text-primary-400 hover:underline"
                               >
                                 🔗 {entregaExistente.enlace_entrega}
+                              </a>
+                            )}
+                            {entregaExistente.archivo_url && (
+                              <a
+                                href={entregaExistente.archivo_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-semibold hover:bg-blue-200 transition-colors"
+                              >
+                                📎 Ver archivo adjunto
                               </a>
                             )}
                           </div>

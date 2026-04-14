@@ -24,7 +24,7 @@ export const getCursoById = async (cursoId) => {
       *,
       categorias_cursos (nombre),
       curso_docentes (
-        perfiles_usuarios (id, nombre_completo, avatar_url)
+        perfiles_usuarios!curso_docentes_docente_id_fkey (id, nombre_completo, avatar_url)
       )
     `)
     .eq('id', cursoId)

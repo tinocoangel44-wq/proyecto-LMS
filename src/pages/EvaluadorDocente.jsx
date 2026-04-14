@@ -124,7 +124,18 @@ const EntregaCard = ({ entrega, perfil, onCalificado }) => {
           rel="noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl text-xs font-semibold transition-colors"
         >
-          🔗 Ver archivo externo
+          🔗 Ver enlace externo
+        </a>
+      )}
+
+      {entrega.archivo_url && (
+        <a
+          href={entrega.archivo_url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-xl text-xs font-semibold transition-colors mt-2 ml-2"
+        >
+          📎 Descargar / Ver Archivo Adjunto
         </a>
       )}
 

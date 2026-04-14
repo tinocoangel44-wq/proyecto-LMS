@@ -2,11 +2,21 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getForosPorCurso, createForo, deleteForo,
-  getMensajesPorForo, publicarMensaje, deleteMensaje, buildMessageTree,
+  getMensajesPorForo, publicarMensaje, deleteMensaje,
+  buildMessageTree, subscribeToForo,
 } from '../services/forosService';
 import Button from './ui/Button';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+const flattenTree = (messages) => {
+  let flat = [];
+  messages.forEach(m => {
+    flat.push(m);
+    if (m.replies) flat = flat.concat(flattenTree(m.replies));
+  });
+  return flat;
+};
+
 const timeAgo = (dateStr) => {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -198,6 +208,20 @@ const VistaForo = ({ foro, perfil, canManage, onSalir }) => {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // ── Suscripción Realtime ───────────────────────────────────────────────
+  useEffect(() => {
+    const channel = subscribeToForo(foro.id, (newMsg) => {
+      setMensajes(prev => {
+        // Evitar duplicados (el msg puede llegar antes del refetch)
+        if (prev.find(m => m.id === newMsg.id)) return prev;
+        // Agregar al árbol y reconstruir
+        const flat = flattenTree(prev).concat(newMsg);
+        return buildMessageTree(flat);
+      });
+    });
+    return () => { channel.unsubscribe(); };
+  }, [foro.id]);
 
   const scrollToBottom = () => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
