@@ -28,6 +28,7 @@ export const createTarea = async (tareaData) => {
       instrucciones: tareaData.instrucciones || null,
       fecha_limite: tareaData.fecha_limite || null,
       ponderacion: tareaData.ponderacion || 100,
+      archivo_url: tareaData.archivo_url || null,
       estado: 'publicada',
     }])
     .select()
@@ -62,7 +63,7 @@ export const deleteTarea = async (id) => {
 
 // ── ENTREGAS ───────────────────────────────────────────────────────────────
 
-// Subir archivo de entrega a Storage
+// Subir archivo de entrega (estudiante) a Storage
 export const uploadTareaFile = async (file, estudianteId) => {
   try {
     const ext = file.name.split('.').pop().toLowerCase();
@@ -82,6 +83,30 @@ export const uploadTareaFile = async (file, estudianteId) => {
     return { url: data.publicUrl, error: null };
   } catch (error) {
     console.error('Error subiendo archivo:', error);
+    return { url: null, error };
+  }
+};
+
+// Subir archivo adjunto del docente a Storage
+export const uploadArchivoDocente = async (file, docenteId) => {
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    const filePath = `instrucciones/${docenteId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('tareas')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('tareas')
+      .getPublicUrl(filePath);
+
+    return { url: data.publicUrl, error: null };
+  } catch (error) {
+    console.error('Error subiendo archivo del docente:', error);
     return { url: null, error };
   }
 };

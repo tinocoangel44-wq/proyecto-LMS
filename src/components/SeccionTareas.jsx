@@ -7,6 +7,7 @@ import {
   deleteTarea,
   enviarEntrega,
   getMisEntregas,
+  uploadArchivoDocente,
 } from '../services/tareasService';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -48,7 +49,10 @@ const FormularioTarea = ({ onSubmit, onCancel, isLoading }) => {
     instrucciones: '',
     fecha_limite: '',
     ponderacion: 100,
+    archivoFile: null,
   });
+
+  const nombreArchivo = data.archivoFile?.name || null;
 
   return (
     <form
@@ -100,6 +104,25 @@ const FormularioTarea = ({ onSubmit, onCancel, isLoading }) => {
           onChange={e => setData(p => ({ ...p, instrucciones: e.target.value }))}
           className="px-4 py-3 text-sm bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white resize-none"
         />
+      </div>
+
+      {/* Archivo adjunto del docente */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+          📎 Archivo adjunto (opcional)
+        </label>
+        <input
+          type="file"
+          onChange={e => setData(p => ({ ...p, archivoFile: e.target.files[0] || null }))}
+          className="w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-dark-bg border border-slate-300 dark:border-dark-border rounded-lg file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200 cursor-pointer"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.zip,.rar"
+        />
+        {nombreArchivo && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1">
+            ✅ <span className="truncate max-w-xs">{nombreArchivo}</span>
+          </p>
+        )}
+        <p className="text-[10px] text-slate-400">Máx. 50MB — PDF, Word, PowerPoint, Excel, Imágenes, Zip</p>
       </div>
 
       <div className="flex justify-end gap-2">
@@ -213,10 +236,24 @@ const SeccionTareas = ({ cursoId }) => {
 
   const handleCrearTarea = async (formData) => {
     setSavingTarea(true);
+
+    // Si hay archivo adjunto, subirlo primero
+    let archivoUrl = null;
+    if (formData.archivoFile) {
+      const { url, error: uploadErr } = await uploadArchivoDocente(formData.archivoFile, perfil.id);
+      if (uploadErr) {
+        showFeedback('error', '❌ Error subiendo el archivo: ' + uploadErr.message);
+        setSavingTarea(false);
+        return;
+      }
+      archivoUrl = url;
+    }
+
     const { error } = await createTarea({
       curso_id: cursoId,
       creado_por: perfil.id,
       ...formData,
+      archivo_url: archivoUrl,
     });
     setSavingTarea(false);
     if (error) {
@@ -384,6 +421,23 @@ const SeccionTareas = ({ cursoId }) => {
                         <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
                           {tarea.instrucciones}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Archivo adjunto del docente */}
+                    {tarea.archivo_url && (
+                      <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4">
+                        <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase mb-2 tracking-wider">
+                          📎 Material adjunto
+                        </h4>
+                        <a
+                          href={tarea.archivo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 rounded-lg text-sm font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                        >
+                          📄 Descargar / Ver archivo
+                        </a>
                       </div>
                     )}
 
