@@ -47,7 +47,7 @@ const Cursos = () => {
       } else {
         // Modo creación: pasar perfil.id para asignar docente en curso_docentes
         const { error } = await createCurso(
-          { ...formData, creado_por: user?.id },
+          { ...formData, creado_por: perfil?.id },
           perfil?.id // docente_id para la tabla curso_docentes
         );
         if (error) throw error;
