@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signIn, registerStudent, signInWithGoogle } from '../services/auth';
+import { supabase } from '../services/supabase';
 
 /* ══════════════════════════════════════════════
    Íconos SVG inline — sin dependencias externas
@@ -574,7 +575,7 @@ const Login = () => {
                       disabled={loginLoading || googleLoading} className="lf-btn-secondary">
                       {googleLoading
                         ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                            <IC.Spinner /> Iniciando sesión con Google…
+                            <IC.Spinner /> Redirigiendo a Google…
                           </span>
                         : <><IC.Google /> Continuar con Google</>
                       }
@@ -677,6 +678,20 @@ const Login = () => {
                       {regLoading
                         ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}><IC.Spinner /> Creando cuenta…</span>
                         : 'Crear cuenta'}
+                    </button>
+
+                    <div className="lf-divider">o regístrate con</div>
+
+                    {googleError && <ErrorMsg>{googleError}</ErrorMsg>}
+
+                    <button id="register-google" type="button" onClick={handleGoogle}
+                      disabled={regLoading || googleLoading} className="lf-btn-secondary">
+                      {googleLoading
+                        ? <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                            <IC.Spinner /> Redirigiendo a Google…
+                          </span>
+                        : <><IC.Google /> Continuar con Google</>
+                      }
                     </button>
                   </div>
 
