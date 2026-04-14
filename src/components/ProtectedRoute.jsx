@@ -19,6 +19,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // BLOQUEO MANDATARIO: Expulsar inmediatamente a /verificar-email si no pasaron validación
+  if (!user.email_confirmed_at) {
+    return <Navigate to="/verificar-email" replace />;
+  }
+
   // Si existen restricciones de rol y el del usuario no coincide, expulsarlo y mandarlo a su respectivo tablero.
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     if (role === 'administrador') return <Navigate to="/dashboard-admin" replace />;

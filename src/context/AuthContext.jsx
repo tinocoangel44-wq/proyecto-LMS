@@ -23,6 +23,14 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // BLOQUEO MANDATARIO: Si el correo no está verificado, no buscamos ni creamos el perfil.
+    if (!authUser.email_confirmed_at) {
+      setUser(authUser); // Retenemos al user para despacharlo a verificar-email
+      setRole(null);
+      setPerfil(null);
+      return;
+    }
+
     setUser(authUser);
 
     // 1. Intentar obtener el perfil existente

@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Cada página se convierte en un chunk separado — se carga solo cuando se necesita
 const Login           = lazy(() => import('./pages/Login'));
 const Registro        = lazy(() => import('./pages/Registro'));
+const VerificarEmail  = lazy(() => import('./pages/VerificarEmail'));
 const DashboardAdmin  = lazy(() => import('./pages/DashboardAdmin'));
 const PanelDocente    = lazy(() => import('./pages/PanelDocente'));
 const PanelEstudiante = lazy(() => import('./pages/PanelEstudiante'));
@@ -56,6 +57,7 @@ function App() {
             {/* Rutas Públicas */}
             <Route path="/login"    element={<Login />} />
             <Route path="/registro" element={<Registro />} />
+            <Route path="/verificar-email" element={<VerificarEmail />} />
 
             {/* Raíz (dispatcher) */}
             <Route path="/" element={<HomeRedirectRouter />} />
