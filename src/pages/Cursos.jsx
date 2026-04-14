@@ -45,9 +45,12 @@ const Cursos = () => {
         if (error) throw error;
         showFeedback('success', '✅ Curso actualizado correctamente.');
       } else {
-        // Modo creación: pasar perfil.id para asignar docente en curso_docentes
+        // Modo creación: pasar user?.id al insert
+        console.log("Usuario:", user);
+        console.log("Insertando curso:", formData);
+        
         const { error } = await createCurso(
-          { ...formData, creado_por: perfil?.id },
+          { ...formData, creado_por: user?.id },
           perfil?.id // docente_id para la tabla curso_docentes
         );
         if (error) throw error;
