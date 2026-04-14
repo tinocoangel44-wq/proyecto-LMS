@@ -175,16 +175,20 @@ export const getPerfilUsuario = async (userId) => {
  *
  * @param {string} [redirectTo] - URL de retorno después del login. Default: origin actual.
  */
-export const signInWithGoogle = async (redirectTo) => {
+export const signInWithGoogle = async () => {
   try {
+    // Detectamos si estamos en local o producción para no romper el entorno de desarrollo
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const redirectUrl = isLocalhost 
+      ? 'http://localhost:3000/dashboard'
+      : 'https://sapientia-topaz.vercel.app/dashboard';
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectTo || window.location.origin,
+        redirectTo: redirectUrl,
         queryParams: {
-          // Solicitar access_type=offline para recibir refresh_token
           access_type: 'offline',
-          // prompt=select_account fuerza selección de cuenta (mejor UX)
           prompt: 'select_account',
         },
       },
