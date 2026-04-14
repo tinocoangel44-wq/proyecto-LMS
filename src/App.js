@@ -59,6 +59,7 @@ function App() {
 
             {/* Raíz (dispatcher) */}
             <Route path="/" element={<HomeRedirectRouter />} />
+            <Route path="/dashboard" element={<HomeRedirectRouter />} />
 
             {/* Rutas privadas generales */}
             <Route path="/perfil" element={

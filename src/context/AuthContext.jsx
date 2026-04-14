@@ -74,26 +74,22 @@ export const AuthProvider = ({ children }) => {
 
     // ── Suscripción a cambios de autenticación ────────────────────
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Log para debug solicitado: ver si regresa sesión correcta en Vercel
+      (event, session) => {
         console.log("Supabase Auth Event:", event);
         console.log("Session:", session);
 
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          // Detectar y crear perfil si no existe (implementado arriba)
-          await handleUserSession(session?.user ?? null);
-          
-          // Redirección forzada después de auth con Google (como solicitado explícitamente)
-          // Se verifica el pathname para evitar redirects infinitos cíclicos.
-          if (event === 'SIGNED_IN' && window.location.pathname !== '/dashboard') {
-            window.location.href = '/dashboard';
+        // Se usa setTimeout para evitar el bug de deadlock en supbase-js 
+        // cuando se hacen llamadas async directamente en el callback
+        setTimeout(async () => {
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            await handleUserSession(session?.user ?? null);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setRole(null);
+            setPerfil(null);
           }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setRole(null);
-          setPerfil(null);
-        }
-        setLoading(false);
+          setLoading(false);
+        }, 0);
       }
     );
 
