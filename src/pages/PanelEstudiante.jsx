@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardEstudiante } from '../services/dashboardService';
-import { getCursosInscritos, inscribirCurso, getCatalogoDisponible } from '../services/inscripcionesService';
+import { inscribirCurso, getCatalogoDisponible } from '../services/inscripcionesService';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import ExternalWidgets from '../components/ExternalWidgets';
