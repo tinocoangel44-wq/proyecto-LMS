@@ -12,8 +12,8 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Maneja la sesión de cualquier usuario autenticado (email o OAuth).
-   * Si el usuario autenticó con Google y no tiene perfil, lo crea automáticamente
-   * con rol "estudiante" via la función upsert_oauth_profile de Supabase.
+   * Si el usuario autenticado (verificado o Google) no tiene perfil, lo crea automáticamente
+   * con rol "estudiante" iterando sobre upsert_oauth_profile de Supabase de manera unificada.
    */
   const handleUserSession = useCallback(async (authUser) => {
     if (!authUser) {
@@ -35,26 +35,20 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // 2. No encontró perfil — puede ser primer login con Google u OAuth
-    const isOAuthUser = authUser.app_metadata?.provider !== 'email';
+    // 2. No encontró perfil — (Sea por Google Auth o Registro de email nuevo)
+    // Crear perfil automáticamente (roles siempre = estudiante por defecto de la app pública)
+    const { error: upsertErr } = await upsertPerfilOAuth(authUser);
 
-    if (isOAuthUser) {
-      // Crear perfil automáticamente (roles siempre = estudiante)
-      const { error: upsertErr } = await upsertPerfilOAuth(authUser);
-
-      if (!upsertErr) {
-        // Volver a leer el perfil recién creado
-        const { perfil: newProfile } = await getPerfilUsuario(authUser.id);
-        if (newProfile) {
-          setPerfil(newProfile);
-          setRole(newProfile.roles?.nombre || null);
-        }
-      } else {
-        console.error('Error al crear perfil OAuth:', upsertErr.message);
+    if (!upsertErr) {
+      // Volver a leer el perfil recién creado
+      const { perfil: newProfile } = await getPerfilUsuario(authUser.id);
+      if (newProfile) {
+        setPerfil(newProfile);
+        setRole(newProfile.roles?.nombre || null);
       }
+    } else {
+      console.error('Error al crear/unificar perfil:', upsertErr.message);
     }
-    // Si es email sin perfil: el trigger de la BD debería haberlo creado
-    // No hacemos nada extra — puede llegar en el próximo ciclo de auth
   }, []);
 
   useEffect(() => {
@@ -79,11 +73,20 @@ export const AuthProvider = ({ children }) => {
         console.log("Session:", session);
 
         // Se usa setTimeout para evitar el bug de deadlock en supbase-js 
-        // cuando se hacen llamadas async directamente en el callback
         setTimeout(async () => {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
             await handleUserSession(session?.user ?? null);
+            
+            if (event === "SIGNED_IN" && session) {
+              console.log("Usuario autenticado (Unificado)");
+              // SOLO ejecutar una vez (prevent infinite loop redirects)
+              if (!sessionStorage.getItem("redirected")) {
+                sessionStorage.setItem("redirected", "true");
+                window.location.href = "/dashboard";
+              }
+            }
           } else if (event === 'SIGNED_OUT') {
+            sessionStorage.removeItem("redirected"); // reset flag
             setUser(null);
             setRole(null);
             setPerfil(null);

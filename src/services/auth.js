@@ -54,6 +54,7 @@ export const registerStudent = async (email, password, nombreCompleto) => {
       email,
       password,
       options: {
+        emailRedirectTo: window.location.origin + "/dashboard",
         data: {
           nombre_completo: nombreCompleto,
           rol_nombre: 'estudiante', // Hint para el trigger de BD
@@ -78,6 +79,7 @@ export const registerUser = async (email, password, nombreCompleto, rolId) => {
       email,
       password,
       options: {
+        emailRedirectTo: window.location.origin + "/dashboard",
         data: {
           nombre_completo: nombreCompleto,
           rol_id: rolId,
@@ -114,7 +116,7 @@ export const signInWithMagicLink = async (email) => {
   try {
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin + "/dashboard" },
     });
     if (error) throw error;
     return { data, error: null };
@@ -177,16 +179,10 @@ export const getPerfilUsuario = async (userId) => {
  */
 export const signInWithGoogle = async () => {
   try {
-    // Detectamos si estamos en local o producción para no romper el entorno de desarrollo
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const redirectUrl = isLocalhost 
-      ? 'http://localhost:3000/dashboard'
-      : 'https://sapientia-topaz.vercel.app/dashboard';
-
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl,
+        redirectTo: window.location.origin + "/dashboard",
         queryParams: {
           access_type: 'offline',
           prompt: 'select_account',
